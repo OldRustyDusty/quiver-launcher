@@ -2,10 +2,22 @@ import { describe, expect, it } from "vitest";
 import type { Asset } from "@quiverlauncher/api";
 import type { BpApp, BpState } from "../bridge";
 import { normalize } from "../data/sidecar";
-import { discoverApps, downloadRows, rememberedAsset } from "./lists";
+import { discoverApps, downloadRows, matchesSearch, rememberedAsset } from "./lists";
 
 const app = (id: string, state: BpState, over: Partial<BpApp> = {}) =>
   ({ id, title: id, state, consoles: ["n64"], basedOn: "n64", installedVersion: state === "notInstalled" ? undefined : "v1", ...over }) as BpApp;
+
+describe("matchesSearch", () => {
+  const game = { title: "2 Ship 2 Harkinian", gameTitle: "The Legend of Zelda: Majora's Mask", tags: ["recomp", "n64"] };
+
+  it("finds every word in the names or tags, any case", () => {
+    expect(matchesSearch(game, "zelda")).toBe(true);
+    expect(matchesSearch(game, "SHIP majora")).toBe(true);
+    expect(matchesSearch(game, "recomp n64")).toBe(true);
+    expect(matchesSearch(game, "zelda ocarina")).toBe(false);
+    expect(matchesSearch(game, "  ")).toBe(true);
+  });
+});
 
 describe("discoverApps", () => {
   const library = [app("mine", "notInstalled"), app("installed", "installed"), app("ps", "notInstalled", { consoles: ["ps1"], basedOn: "ps1" })];

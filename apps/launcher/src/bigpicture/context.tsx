@@ -51,6 +51,7 @@ export function useInputHandler(handler: InputHandler, layer: Layer = LAYER.view
         onHold: (a) => latest.current.onHold?.(a),
         holdFor: (a) => latest.current.holdFor?.(a),
         hints: () => latest.current.hints(),
+        ...(latest.current.onText ? { onText: (text: string) => latest.current.onText?.(text) } : {}),
       },
       layer,
     );

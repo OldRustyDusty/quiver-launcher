@@ -20,6 +20,11 @@ export type InputHandler = {
   /** How long this action must be held, as things are now; undefined for a plain press. */
   holdFor?(action: InputAction): number | undefined;
   hints(): readonly ButtonHint[];
+  /**
+   * Typing on a physical keyboard, while this handler is on top (the on-screen keyboard):
+   * a character, "\b" for Backspace, "\n" for Enter. Those keys then aren't actions.
+   */
+  onText?(text: string): void;
 };
 
 export type Hold = { action: InputAction; since: number; duration: number };

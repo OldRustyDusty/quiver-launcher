@@ -157,3 +157,17 @@ handled upstream. "Skip this version" is stored in the sidecar, as in the spec.
 | S10 | Session tracking + foreground restore + input gating |
 | S11 | Details, settings overlay, OSK + search, Unassigned, controller toast |
 | S12 | Polish: transitions, reduce motion, scale 720p–4K, empty/error states |
+
+## 11. Details and settings (S11)
+
+* Details buttons: Play (or Install / Get), Update, Change version (the catalog's releases), Console (picker; Automatic
+  follows the catalog), Open folder, Uninstall (hold A, or the mouse, for 1.5 s; files go to the Recycle Bin as upstream's
+  remove does).
+* **Left out:** *Manage mods in desktop mode*, because v4 has no mods. *Change artwork* waits for SteamGridDB (deferred). The
+  sidecar's art overrides already apply when set.
+* Settings has every §6 setting except the SteamGridDB key (deferred), plus *After getting a game*, *Unassigned games*
+  and *Switch to desktop mode*. Accounts and sign-in stay in desktop mode.
+* Search: View / Create opens the on-screen keyboard. Library tabs filter as you type (Home and Downloads jump to All).
+  Discover searches the catalog once typing pauses. B clears the search. A physical keyboard types into the on-screen one.
+* Desktop mode shows a note when a controller is turned on (upstream's controller events). A or a click opens Big Picture.
+

@@ -542,7 +542,9 @@ pub fn run() {
             bigpicture::bp_launch_args,
             bigpicture::bp_focus,
             bigpicture::bp_pads_start,
-            bigpicture::bp_pads_stop
+            bigpicture::bp_pads_stop,
+            bigpicture::bp_use_monitor,
+            bigpicture::bp_monitors
         ])
         .run(tauri::generate_context!())
         .expect("error while running Quiver Launcher");

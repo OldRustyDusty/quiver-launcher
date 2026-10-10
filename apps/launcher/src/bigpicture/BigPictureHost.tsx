@@ -24,6 +24,7 @@ import { withArtOverrides } from "./art/art";
 import { Shell } from "./views/Shell";
 import { usePlayFlow } from "./updates/PlayFlow";
 import { AssetPicker } from "./updates/AssetPicker";
+import { ControllerToast } from "./ControllerToast";
 import "./bigpicture.css";
 
 const io = { read: bpNative.readSidecar, write: bpNative.writeSidecar };
@@ -52,6 +53,7 @@ export function BigPictureHost({ children }: { children: ReactNode }) {
         {children}
       </div>
       {open && sidecar && <BigPicture sidecar={sidecar} debug={debug} />}
+      {!open && sidecar && <ControllerToast enabled={sidecar.settings.offerBigPictureOnControllerConnect} />}
     </>
   );
 }
@@ -121,12 +123,30 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
     void bpNative.focus().catch(() => {});
   }, []);
 
+  // The chosen monitor (Settings → Screen), once fullscreen.
+  const monitor = data.settings.monitor;
+  useEffect(() => {
+    if (monitor) void bpNative.useMonitor(monitor).catch(() => {});
+  }, [monitor]);
+
   // Big Picture takes the keyboard and controllers from upstream's spatial navigation while it shows.
   useEffect(() => {
     suspendSpatialNavigation(true);
     // A key's action is fixed when it goes down: Shift let go before Tab mustn't turn its release into another action.
     const keysDown = new Map<string, InputAction>();
     const onKey = (down: boolean) => (e: KeyboardEvent) => {
+      // The on-screen keyboard takes typing from a physical one too.
+      const typing = router.top?.onText;
+      if (typing && down && gate.isOpen && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const text = e.key === "Backspace" ? "\b" : e.key === "Enter" ? "\n" : e.key.length === 1 ? e.key : null;
+        if (text !== null) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          setFamily("keyboard");
+          typing(text);
+          return;
+        }
+      }
       const action = down ? keyAction(e) : keysDown.get(e.code);
       if (!action) return;
       e.preventDefault();
@@ -194,7 +214,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
       void focus.then((stop) => stop(), () => {});
       void pad.then((stop) => stop());
     };
-  }, [gate, debug]);
+  }, [gate, router, debug]);
 
   /** Starts the game (no more questions) and counts the play. */
   const launch = (id: string) => {

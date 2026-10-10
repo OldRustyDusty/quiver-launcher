@@ -1,37 +1,219 @@
-/** A game's page (Y). For now its art, name, versions and description; its buttons come in S11. */
+/**
+ * A game's page (Y; spec §8): its hero, logo and story, what's installed, and
+ * buttons: Play (or Install / Get), Update, Change version, Console, Open folder,
+ * Uninstall (held). Left/Right pick a button, A presses it.
+ */
+import { useEffect, useState, type ReactNode } from "react";
+import { ArrowUpCircle, Download, FolderOpen, Gamepad2, History, Play, Trash2 } from "lucide-react";
+import type { Release } from "@quiverlauncher/api";
 import { useBp, useInputHandler } from "../context";
-import { LAYER } from "../input/router";
+import { LAYER, type ButtonHint } from "../input/router";
 import type { BpApp } from "../bridge";
+import { isInstalled } from "../bridge";
+import { resolveConsole } from "../consoles/resolve";
+import { native } from "../../native";
 import { versionLabel } from "../../versions";
+import { GameChips, GameLogo, playedLabel } from "./GameHeader";
+import { ConsolePicker } from "./Settings";
+import { isBusy } from "./tileActions";
 
-/** `app` as it was opened; shown live from the library when it's in it (a game from Discover may not be). */
-export function Details({ app: opened, onClose }: { app: BpApp; onClose: () => void }) {
+const UNINSTALL_HOLD_MS = 1500;
+
+type Button = { id: string; label: string; icon: ReactNode; run: () => void; hold?: boolean };
+
+/** The catalog's releases of the game: the player picks one to install (and stays on it until they update). */
+function VersionPicker({ app, onClose }: { app: BpApp; onClose: () => void }) {
   const { bridge } = useBp();
-  const app = bridge.apps.find((a) => a.id === opened.id) ?? opened;
+  const [releases, setReleases] = useState<Release[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    void bridge
+      .releases(app.slug, 20)
+      .then((page) => setReleases(page.items))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [bridge, app.slug]);
+  const pick = (release: Release) => {
+    void bridge.install(app.entry, release);
+    onClose();
+  };
   useInputHandler(
     {
       onAction(action) {
-        if (action === "back" || action === "details") onClose();
+        if (action === "up") setIndex((i) => Math.max(0, i - 1));
+        else if (action === "down") setIndex((i) => Math.min((releases?.length ?? 1) - 1, i + 1));
+        else if (action === "accept" && releases?.[index]) pick(releases[index]);
+        else if (action === "back") onClose();
       },
-      hints: () => [{ action: "back", label: "Back" }],
+      hints: () => [
+        { action: "accept", label: "Install this version" },
+        { action: "back", label: "Back" },
+      ],
+    },
+    LAYER.dialog,
+  );
+  useEffect(() => {
+    document.querySelector(".bp-version-list .focused")?.scrollIntoView({ block: "nearest" });
+  }, [index]);
+  return (
+    <div className="bp-dialog-backdrop" role="dialog" aria-label="Change version">
+      <section className="bp-dialog bp-picker">
+        <div className="bp-dialog-body">
+          <h2>
+            <History aria-hidden="true" /> Change version
+          </h2>
+          <p className="bp-dialog-lead">Installed: {app.installedVersion ? versionLabel(app.installedVersion) : "nothing yet"}</p>
+          {error ? (
+            <p className="bp-error">{error}</p>
+          ) : !releases ? (
+            <p className="bp-dialog-lead small">Loading releases…</p>
+          ) : (
+            <ul className="bp-settings-list bp-version-list">
+              {releases.map((r, i) => (
+                <li key={r.id} className={i === index ? "focused" : ""} onMouseMove={() => setIndex(i)} onClick={() => pick(r)}>
+                  <span className="bp-settings-label">
+                    {versionLabel(r.version)}
+                    <small>
+                      {new Date(r.releasedAt).toLocaleDateString()}
+                      {r.prerelease ? " · pre-release" : ""}
+                    </small>
+                  </span>
+                  <span className="bp-settings-value">
+                    {r.version === app.installedVersion ? "Installed" : r.version === app.latestVersion ? "Latest" : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/** `app` as it was opened; shown live from the library when it's in it (a game from Discover may not be). */
+export function Details({ app: opened, onClose }: { app: BpApp; onClose: () => void }) {
+  const { bridge, play, consoles, data, router } = useBp();
+  const app = bridge.apps.find((a) => a.id === opened.id) ?? bridge.view(opened.entry);
+  const [sub, setSub] = useState<"version" | "console" | null>(null);
+  const [index, setIndex] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const installed = isInstalled(app) && app.installedVersion;
+  const consoleName = consoles.get(resolveConsole(app, data.apps[app.id]?.consoleOverride)).name;
+  const plays = data.apps[app.id]?.playCount ?? 0;
+
+  const buttons: Button[] = [
+    ...(installed ? [{ id: "play", label: "Play", icon: <Play />, run: () => play(app.id) }] : []),
+    ...(!installed && !isBusy(app)
+      ? [{ id: "get", label: app.inLibrary ? "Install" : "Get", icon: <Download />, run: () => void bridge.install(app.entry) }]
+      : []),
+    ...(app.state === "updateAvailable" ? [{ id: "update", label: `Update to ${versionLabel(app.latestVersion)}`, icon: <ArrowUpCircle />, run: () => void bridge.update(app.id) }] : []),
+    ...(app.slug && !isBusy(app) ? [{ id: "version", label: "Change version", icon: <History />, run: () => setSub("version") }] : []),
+    ...(app.inLibrary ? [{ id: "console", label: "Console", icon: <Gamepad2 />, run: () => setSub("console") }] : []),
+    ...(installed
+      ? [
+          {
+            id: "folder",
+            label: "Open folder",
+            icon: <FolderOpen />,
+            run: () => void native.openFolder(app.id).then(() => setNotice("The folder opened on the desktop."), (e) => setNotice(String(e))),
+          },
+          { id: "uninstall", label: "Uninstall", icon: <Trash2 />, hold: true, run: () => (void bridge.uninstall(app.id), onClose()) },
+        ]
+      : []),
+  ];
+  const at = Math.min(index, buttons.length - 1);
+  const button = buttons[at];
+
+  useInputHandler(
+    {
+      onAction(action) {
+        if (action === "left") setIndex(Math.max(0, at - 1));
+        else if (action === "right") setIndex(Math.min(buttons.length - 1, at + 1));
+        else if (action === "accept" && button && !button.hold) button.run();
+        else if (action === "back" || action === "details") onClose();
+      },
+      holdFor: (action) => (action === "accept" && button?.hold ? UNINSTALL_HOLD_MS : undefined),
+      onHold: (action) => action === "accept" && button?.hold && button.run(),
+      hints: (): ButtonHint[] => [
+        ...(button ? [{ action: "accept" as const, label: button.label, hold: button.hold }] : []),
+        { action: "back", label: "Back" },
+      ],
     },
     LAYER.overlay,
+    !sub,
   );
-  if (!app) return null;
+
   const hero = app.art.hero ?? app.art.capsule;
   return (
     <section className="bp-overlay bp-details" role="dialog" aria-label={app.title}>
       {hero && <img className="bp-details-hero" src={hero} alt="" />}
       <div className="bp-details-body">
-        {app.art.logo ? <img className="bp-logo" src={app.art.logo} alt={app.title} /> : <h1 className="bp-title">{app.title}</h1>}
-        <p className="bp-meta">
-          <span>{app.gameTitle}</span>
-          {app.installedVersion && <span>Installed {versionLabel(app.installedVersion)}</span>}
-          {app.latestVersion && <span>Latest {versionLabel(app.latestVersion)}</span>}
-        </p>
+        <GameLogo app={app} className="large" />
+        <GameChips app={app} consoleName={consoleName} />
+        <div className="bp-details-actions" role="toolbar">
+          {buttons.map((b, i) => (
+            <button
+              key={b.id}
+              type="button"
+              className={`bp-details-button${i === at ? " focused" : ""}${b.id === "play" || b.id === "get" ? " primary" : ""}${b.hold ? " danger" : ""}`}
+              onMouseMove={() => setIndex(i)}
+              onClick={() => !b.hold && b.run()}
+              // A held button is held with the mouse too: pressed as long as it's down, as A is.
+              onPointerDown={(e) => {
+                if (!b.hold || e.button !== 0) return;
+                setIndex(i);
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setTimeout(() => router.dispatch({ action: "accept", phase: "press" }), 0);
+              }}
+              onPointerUp={() => b.hold && router.dispatch({ action: "accept", phase: "release" })}
+              onPointerCancel={() => b.hold && router.dispatch({ action: "accept", phase: "release" })}
+            >
+              {b.icon}
+              {b.label}
+            </button>
+          ))}
+          {isBusy(app) && (
+            <span className="bp-details-busy">
+              {app.state === "queued" ? "Waiting to download…" : app.progress !== null ? `Downloading · ${Math.round(app.progress * 100)}%` : "Downloading…"}
+            </span>
+          )}
+        </div>
+        {button?.hold && <p className="bp-details-hint">Hold to uninstall. Its files go to the Recycle Bin.</p>}
+        {notice && <p className="bp-details-hint">{notice}</p>}
+        <dl className="bp-details-facts">
+          {app.installedVersion && (
+            <div>
+              <dt>Installed</dt>
+              <dd>{versionLabel(app.installedVersion)}</dd>
+            </div>
+          )}
+          {app.latestVersion && (
+            <div>
+              <dt>Latest</dt>
+              <dd>{versionLabel(app.latestVersion)}</dd>
+            </div>
+          )}
+          {app.lastPlayed && (
+            <div>
+              <dt>Last played</dt>
+              <dd>{playedLabel(app.lastPlayed).replace(/^Played /, "")}</dd>
+            </div>
+          )}
+          {plays > 0 && (
+            <div>
+              <dt>Played</dt>
+              <dd>
+                {plays} {plays === 1 ? "time" : "times"}
+              </dd>
+            </div>
+          )}
+        </dl>
         <p className="bp-description">{app.entry.description}</p>
         {app.error && <p className="bp-error">{app.error}</p>}
       </div>
+      {sub === "version" && <VersionPicker app={app} onClose={() => setSub(null)} />}
+      {sub === "console" && <ConsolePicker app={app} onClose={() => setSub(null)} />}
     </section>
   );
 }

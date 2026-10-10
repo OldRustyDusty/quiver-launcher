@@ -102,6 +102,28 @@ pub async fn bp_pads_stop() {
     PADS.stop();
 }
 
+/// Big Picture's screen (spec §11): fullscreen on the monitor named, or the one
+/// the window is on when there's none (or it's gone). Resolves to the monitor used.
+#[tauri::command]
+pub async fn bp_use_monitor(window: tauri::WebviewWindow, name: Option<String>) -> Result<Option<String>, String> {
+    let monitors = window.available_monitors().map_err(|e| e.to_string())?;
+    let target = name.and_then(|n| monitors.into_iter().find(|m| m.name().is_some_and(|mn| *mn == n)));
+    let Some(monitor) = target else {
+        return Ok(window.current_monitor().ok().flatten().and_then(|m| m.name().cloned()));
+    };
+    // Out of fullscreen to move, then back in on the new monitor.
+    window.set_fullscreen(false).map_err(|e| e.to_string())?;
+    window.set_position(*monitor.position()).map_err(|e| e.to_string())?;
+    window.set_fullscreen(true).map_err(|e| e.to_string())?;
+    Ok(monitor.name().cloned())
+}
+
+/// The monitors there are, by name, for the setting.
+#[tauri::command]
+pub async fn bp_monitors(window: tauri::WebviewWindow) -> Vec<String> {
+    window.available_monitors().unwrap_or_default().iter().filter_map(|m| m.name().cloned()).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

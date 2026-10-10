@@ -109,6 +109,10 @@ mockIPC(
         return [];
       case "controllers":
         return ["Preview controller"];
+      case "bp_monitors":
+        return ["\\.\DISPLAY1", "\\.\DISPLAY2"];
+      case "bp_use_monitor":
+        return a.name ?? "\\.\DISPLAY1";
       case "bp_pads_start":
         setTimeout(() => void emit("bp-pads", ["Preview controller"]), 50);
         return null;

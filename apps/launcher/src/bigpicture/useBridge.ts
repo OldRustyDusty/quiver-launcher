@@ -63,7 +63,7 @@ export function useBridge() {
     cancelQueued: (id: string) => queue.cancel(id),
     /** Uninstalls and removes from the library, as upstream's Remove does. */
     uninstall: (id: string) => launcher.remove(id),
-    releases: (slug: string) => launcher.client.releases(slug),
+    releases: (slug: string, limit?: number) => launcher.client.releases(slug, limit),
     discover: (query: AppQuery) => launcher.client.apps({ os: launcher.config.os, ...query }),
   };
 }

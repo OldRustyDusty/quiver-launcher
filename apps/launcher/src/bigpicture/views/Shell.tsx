@@ -14,9 +14,12 @@ import { GridTab } from "./GridTab";
 import { HintBar } from "./HintBar";
 import { Backdrop, GameHeader } from "./GameHeader";
 import { Details } from "./Details";
-import { Menu } from "./Menu";
+import { Settings } from "./Settings";
 import { Discover, newDiscoverState } from "./Discover";
 import { Downloads } from "./Downloads";
+import { Osk } from "./Osk";
+import { Search } from "lucide-react";
+import { matchesSearch } from "./lists";
 import { Home } from "./Home";
 import { ShelfNavigator } from "../nav/shelf";
 
@@ -58,6 +61,10 @@ export function Shell() {
   /** Which way the last tab change went, for the page's slide. */
   const [direction, setDirection] = useState<1 | -1>(1);
   const [overlay, setOverlay] = useState<Overlay>(null);
+  /** Search (spec §8.3): results filter live in the tab; Discover searches the catalog. */
+  const [search, setSearch] = useState("");
+  const [typing, setTyping] = useState(false);
+  const searchBefore = useRef("");
 
   /** Shows a tab, sliding the page in from the side it's on. */
   const go = (id: string) => {
@@ -103,21 +110,31 @@ export function Shell() {
     else if (action === "pagePrev") cycle(-1);
     else if (action === "pageNext") cycle(1);
     else if (action === "menu") setOverlay({ kind: "menu" });
-    else if (action === "search") return true; // Search comes with the on-screen keyboard (S11).
+    else if (action === "search") {
+      // Home and Downloads have nothing to search in: All does.
+      if (tab.kind === "home" || tab.kind === "downloads") go("all");
+      searchBefore.current = search;
+      setTyping(true);
+    }
     else return false;
     return true;
   };
   const first = tabs[0];
   /** B on Discover and Downloads: back to the library tab they were reached from. */
   const backToLibrary = { label: "Library", go: () => go(keepTab(tabs, library.current).id) };
-  const toFirst = tab.id === first.id ? undefined : { label: first.label, go: () => setSelectedId(first.id) };
+  const toFirst = search
+    ? { label: "Clear search", go: () => setSearch("") }
+    : tab.id === first.id
+      ? undefined
+      : { label: first.label, go: () => setSelectedId(first.id) };
 
   const grid = tab.kind === "all" || tab.kind === "console";
   const apps = useMemo(() => {
-    if (tab.kind === "all") return sortApps(installed, settings.allSort);
-    if (tab.kind === "console") return sortApps(installed.filter((a) => consoleOf.get(a.id) === tab.console!.id), "name");
+    const found = installed.filter((a) => matchesSearch(a, search));
+    if (tab.kind === "all") return sortApps(found, settings.allSort);
+    if (tab.kind === "console") return sortApps(found.filter((a) => consoleOf.get(a.id) === tab.console!.id), "name");
     return [];
-  }, [tab, installed, consoleOf, settings.allSort]);
+  }, [tab, installed, consoleOf, settings.allSort, search]);
   const shown = tab.kind === "downloads" ? null : focused;
   const openDetails = (app: BpApp) => setOverlay({ kind: "details", app });
   const toDownloads = () => go("downloads");
@@ -154,6 +171,7 @@ export function Shell() {
                 back={toFirst}
                 onDetails={openDetails}
                 onDownloads={toDownloads}
+                empty={search ? { title: `Nothing matches “${search}”`, text: "Search again, or B to clear the search." } : undefined}
               />
             </div>
           ) : tab.kind === "discover" ? (
@@ -167,6 +185,7 @@ export function Shell() {
               onDetails={openDetails}
               onDownloads={toDownloads}
               consoleName={consoleName}
+              search={search}
               onGot={(app) => settings.afterGet === "library" && goToGame(app)}
             />
           ) : (
@@ -174,9 +193,29 @@ export function Shell() {
           )}
         </div>
       </main>
+      {search && (grid || tab.kind === "discover") && (
+        <button type="button" className="bp-search-chip" onClick={() => setSearch("")} aria-label="Clear the search">
+          <Search aria-hidden="true" />“{search}”<span>✕</span>
+        </button>
+      )}
       <HintBar />
+      {typing && (
+        <Osk
+          title="Search"
+          value={search}
+          onChange={setSearch}
+          onDone={(value) => {
+            setSearch(value.trim());
+            setTyping(false);
+          }}
+          onCancel={() => {
+            setSearch(searchBefore.current);
+            setTyping(false);
+          }}
+        />
+      )}
       {overlay?.kind === "details" && <Details app={overlay.app} onClose={() => setOverlay(null)} />}
-      {overlay?.kind === "menu" && <Menu onClose={() => setOverlay(null)} />}
+      {overlay?.kind === "menu" && <Settings onClose={() => setOverlay(null)} />}
     </>
   );
 }

@@ -11,7 +11,7 @@ import { isInstalled, type BpApp } from "../bridge";
 import type { InputAction } from "../input/actions";
 import { GameHeader } from "./GameHeader";
 import { GridTab, type Back } from "./GridTab";
-import { discoverApps, type LibraryFilter } from "./lists";
+import { discoverApps, matchesSearch, type LibraryFilter } from "./lists";
 
 /** Kept by the shell: Discover comes back as it was left. */
 export type DiscoverState = {
@@ -43,9 +43,11 @@ type Props = {
   consoleName: (app: BpApp) => string;
   /** A game was got here (the shell may go to it in the library). */
   onGot: (app: BpApp) => void;
+  /** The search (the catalog is searched for it, once typing pauses). */
+  search: string;
 };
 
-export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDetails, onDownloads, consoleName, onGot }: Props) {
+export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDetails, onDownloads, consoleName, onGot, search: typed }: Props) {
   const { bridge, consoles } = useBp();
   const [filter, setFilter] = useState(state.filter);
   const [consoleId, setConsoleId] = useState(state.consoleId);
@@ -53,7 +55,13 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
   const [, setLoaded] = useState(0);
   /** Games got during this visit: they stay put, ticked once installed, until Discover is left. */
   const [kept, setKept] = useState<ReadonlySet<string>>(() => new Set());
-  const key = consoleId ?? "*";
+  // The catalog is asked once typing pauses, not at every letter.
+  const [search, setSearch] = useState(typed);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(typed.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [typed]);
+  const key = `${consoleId ?? "*"}|${search}`;
   if (!state.pages.has(key)) state.pages.set(key, { entries: [], cursor: null, done: false, loading: false, error: null });
   const page = state.pages.get(key)!;
 
@@ -62,7 +70,7 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
     if (p.loading || p.done) return;
     p.loading = true;
     bridge
-      .discover({ console: consoleId ?? undefined, cursor: p.cursor, limit: 48 })
+      .discover({ console: consoleId ?? undefined, search: search || undefined, cursor: p.cursor, limit: 48 })
       .then((next) => {
         p.entries = [...p.entries, ...next.items];
         p.cursor = next.nextCursor;
@@ -74,7 +82,7 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
         p.loading = false;
         setLoaded((n) => n + 1);
       });
-  }, [bridge, consoleId, key, state.pages]);
+  }, [bridge, consoleId, search, key, state.pages]);
 
   useEffect(() => {
     if (filter !== "inLibrary" && !page.entries.length) loadMore();
@@ -83,8 +91,11 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
   const catalog = useMemo(() => page.entries.map((e) => bridge.view(e)), [page.entries, bridge]);
   // Memoized: the grid reports the focused app up on every change of identity, so a new copy each render would loop.
   const apps = useMemo(
-    () => discoverApps(bridge.apps, catalog, filter, consoleId, kept).map((a) => (kept.has(a.id) && isInstalled(a) ? { ...a, fresh: true } : a)),
-    [bridge.apps, catalog, filter, consoleId, kept],
+    () =>
+      discoverApps(bridge.apps.filter((a) => matchesSearch(a, search)), catalog, filter, consoleId, kept).map((a) =>
+        kept.has(a.id) && isInstalled(a) ? { ...a, fresh: true } : a,
+      ),
+    [bridge.apps, catalog, filter, consoleId, kept, search],
   );
 
   // Pages of games already in the library leave little to show: keep loading until there's a screenful.
@@ -155,7 +166,9 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
       ? { title: "Couldn't reach the catalog", text: page.error }
       : filter === "inLibrary"
         ? { title: "Everything in your library is installed", text: "Games you add but haven't installed show here." }
-        : { title: loading ? "Loading the catalog…" : "Nothing to find here", text: loading ? "" : "Try another console, or All." };
+        : search && !loading
+          ? { title: `Nothing in the catalog matches “${search}”`, text: "Search again, or B to clear the search." }
+          : { title: loading ? "Loading the catalog…" : "Nothing to find here", text: loading ? "" : "Try another console, or All." };
 
   return (
     <div className="bp-discover">

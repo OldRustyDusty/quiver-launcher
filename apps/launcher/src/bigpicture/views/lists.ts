@@ -4,6 +4,14 @@ import { inLibraryView, isInstalled, type BpApp } from "../bridge";
 import type { BpSidecar } from "../data/sidecar";
 import { isBusy } from "./tileActions";
 
+/** Search (spec §8.3): every word of the query in the game's names or tags, any case. */
+export function matchesSearch(app: Pick<BpApp, "title" | "gameTitle" | "tags">, query: string): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const text = [app.title, app.gameTitle, ...app.tags].join(" ").toLowerCase();
+  return words.every((w) => text.includes(w));
+}
+
 /** Discover's library filter: what's not in the library yet, what's in it but not installed, or both. */
 export type LibraryFilter = "notInLibrary" | "inLibrary" | "all";
 
