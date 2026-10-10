@@ -127,9 +127,22 @@ Open Settings with Menu / Options, or F10.
 
 **Run one at a time.** If both apps are open together, each saves its own copy of the library over the other's.
 
-**Coming from Quiver Launcher 3?** On first start, the app offers to bring over your Quiver 3 library and installed games, as
-the official app does. It also finds Quiver 3 when you installed it somewhere other than the default folder. If the library
-is empty, Home shows the offer; press A to import.
+### Coming from Quiver Launcher 3
+
+Quiver Launcher 4 is a rewrite with its own data folder, so on its own it would start with an empty library. To avoid that, the
+app offers to bring your Quiver 3 library over:
+
+- **Nothing is downloaded again.** Installed games stay where they are, and Quiver 4 simply points at their folders, versions
+  included.
+- **Games are matched to the Quiver catalog** by their GitHub or GitLab repository, so they get catalog art, consoles and updates.
+  Apps that aren't in the catalog come over as custom apps. Any that can't be matched are listed for you.
+- **Quiver 3 is only read, never changed**, so it keeps working if you want to go back.
+
+The import itself is upstream Quiver's. The fork adds two things:
+
+- **It finds Quiver 3 wherever you put it.** Upstream looks only in the default folders, so a portable or moved Quiver 3 (for
+  example `E:\QuiverLauncher`) was never offered. Big Quiver also reads the folder from Quiver 3's own update log.
+- **You can import with the controller.** When your library is empty, Big Picture's Home shows the offer, and A imports.
 
 ## How it works
 
