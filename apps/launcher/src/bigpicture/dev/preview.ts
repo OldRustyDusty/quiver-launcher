@@ -6,13 +6,13 @@
  *
  * - The library is the catalog's first apps, most installed, some with an
  *   update, some not yet installed; it's kept in localStorage (?reset starts again).
- * - ?desktop starts in desktop mode instead of Big Picture.
+ * - ?desktop starts in desktop mode instead of Big Picture; ?debug shows the input overlay.
  * - Controllers: bpPad("South") in the console presses and releases a control
  *   (gilrs names); bpPad("DPadRight", true) holds it, bpPad("DPadRight", false)
  *   lets go. The last argument is the vendor id (0x054c for PlayStation glyphs).
  * - Installs pretend to download for a few seconds.
  */
-import { mockIPC } from "@tauri-apps/api/mocks";
+import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 
 const API = "https://api.quiverlauncher.com/api/v1";
@@ -86,7 +86,9 @@ mockIPC(
       case "bp_write_sidecar":
         return save("bigpicture", a.value);
       case "bp_launch_args":
-        return { bigPicture: !params.has("desktop") };
+        return { bigPicture: !params.has("desktop"), debug: params.has("debug") };
+      case "plugin:window|is_focused":
+        return true;
       case "install":
         return fakeInstall(a.request);
       case "launch":
@@ -102,6 +104,8 @@ mockIPC(
   },
   { shouldMockEvents: true },
 );
+
+mockWindows("main");
 
 Object.assign(window, {
   bpPad: (key: string, down?: boolean, vendor = 0x045e) => {

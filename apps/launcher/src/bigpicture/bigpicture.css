@@ -722,6 +722,25 @@
   font-size: calc(var(--u) * 15);
 }
 
+/* QUIVER_BP_DEBUG=1 */
+.bp-debug {
+  position: fixed;
+  left: calc(var(--u) * 12);
+  bottom: calc(var(--u) * 64);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 2);
+  max-width: 50%;
+  padding: calc(var(--u) * 10) calc(var(--u) * 12);
+  border: 1px solid #fbbf2466;
+  border-radius: calc(var(--u) * 8);
+  background: #000000d0;
+  color: #fde68a;
+  font: calc(var(--u) * 12) / 1.4 ui-monospace, Consolas, monospace;
+  pointer-events: none;
+}
+
 /* Reduce motion: no scaling, sliding or sweeping; the focus border stays. */
 .bp-reduce-motion *,
 .bp-reduce-motion *::before,

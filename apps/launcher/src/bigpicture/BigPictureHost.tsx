@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { native } from "../native";
 import { useLauncher } from "../store";
 import { suspendSpatialNavigation } from "../spatial";
@@ -27,6 +28,7 @@ const io = { read: bpNative.readSidecar, write: bpNative.writeSidecar };
 export function BigPictureHost({ children }: { children: ReactNode }) {
   const open = useSyncExternalStore(bigPictureMode.subscribe, bigPictureMode.isOpen);
   const [sidecar, setSidecar] = useState<SidecarStore | null>(null);
+  const [debug, setDebug] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +36,8 @@ export function BigPictureHost({ children }: { children: ReactNode }) {
     void SidecarStore.load(io, 500, logError).then(async (store) => {
       if (cancelled) return;
       setSidecar(store);
-      const args = await bpNative.launchArgs().catch(() => ({ bigPicture: false }));
+      const args = await bpNative.launchArgs().catch(() => ({ bigPicture: false, debug: false }));
+      setDebug(args.debug);
       if (args.bigPicture || store.settings.startInBigPicture) openBigPicture();
     });
     return () => void (cancelled = true);
@@ -45,7 +48,7 @@ export function BigPictureHost({ children }: { children: ReactNode }) {
       <div className="bp-desktop" inert={open}>
         {children}
       </div>
-      {open && sidecar && <BigPicture sidecar={sidecar} />}
+      {open && sidecar && <BigPicture sidecar={sidecar} debug={debug} />}
     </>
   );
 }
@@ -60,11 +63,13 @@ function useWindowHeight() {
   return height;
 }
 
-function BigPicture({ sidecar }: { sidecar: SidecarStore }) {
+function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean }) {
   const launcher = useLauncher();
   const bridge = useBridge();
   const data = useSyncExternalStore(sidecar.subscribe, () => sidecar.snapshot);
   const [family, setFamily] = useState<InputFamily>("keyboard");
+  /** QUIVER_BP_DEBUG=1: the last controller events, and whether input is getting through. */
+  const [events, setEvents] = useState<string[]>([]);
   const height = useWindowHeight();
   const scale = Math.max(0.6, (height / 720) * data.settings.uiScale);
 
@@ -118,26 +123,31 @@ function BigPicture({ sidecar }: { sidecar: SidecarStore }) {
     window.addEventListener("keydown", keyDown, true);
     window.addEventListener("keyup", keyUp, true);
 
-    const pad = listen<{ key: string; down: boolean; vendor?: number }>("pad", ({ payload }) => {
+    const pad = listen<{ key: string; down: boolean; vendor?: number | null }>("pad", ({ payload }) => {
+      if (debug) {
+        const vendor = payload.vendor == null ? "no vendor" : `vendor 0x${payload.vendor.toString(16).padStart(4, "0")}`;
+        const line = `${payload.key} ${payload.down ? "down" : "up"} · ${vendor} · ${gate.isOpen ? "open" : "dropped (window not in front)"}`;
+        setEvents((e) => [line, ...e].slice(0, 8));
+      }
       const action = padAction(payload.key);
       if (!action) return;
       if (payload.down && gate.isOpen) setFamily(familyOf(payload.vendor));
       gate.input(`pad:${payload.key}`, action, payload.down);
     });
 
-    const onFocus = () => (gate.windowActive = document.hasFocus());
-    onFocus();
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("blur", onFocus);
+    // The native window's focus, not the page's: a webview not clicked yet can say it isn't focused while its window is in front.
+    const win = getCurrentWindow();
+    const setActive = (active: boolean) => (gate.windowActive = active);
+    void win.isFocused().then(setActive, () => setActive(true));
+    const focus = win.onFocusChanged(({ payload }) => setActive(payload));
     return () => {
       suspendSpatialNavigation(false);
       window.removeEventListener("keydown", keyDown, true);
       window.removeEventListener("keyup", keyUp, true);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("blur", onFocus);
+      void focus.then((stop) => stop(), () => {});
       void pad.then((stop) => stop());
     };
-  }, [gate]);
+  }, [gate, debug]);
 
   const value: Bp = {
     sidecar,
@@ -167,6 +177,14 @@ function BigPicture({ sidecar }: { sidecar: SidecarStore }) {
         aria-label="Quiver Launcher Big Picture"
       >
         <Shell />
+        {debug && (
+          <aside className="bp-debug">
+            <strong>
+              Input: {gate.isOpen ? "open" : "closed"} · glyphs {family} · pads {pads.length ? pads.join(", ") : "none"}
+            </strong>
+            {events.length ? events.map((e, i) => <span key={i}>{e}</span>) : <span>No controller events yet</span>}
+          </aside>
+        )}
       </div>
     </BpContext.Provider>
   );

@@ -42,11 +42,16 @@ pub fn bp_write_sidecar(data: State<Data>, value: serde_json::Value) -> Result<(
 #[serde(rename_all = "camelCase")]
 pub struct LaunchArgs {
     big_picture: bool,
+    /// `QUIVER_BP_DEBUG=1`: an overlay of controller events, for testing controllers.
+    debug: bool,
 }
 
 #[tauri::command]
 pub fn bp_launch_args() -> LaunchArgs {
-    LaunchArgs { big_picture: std::env::args().any(|a| a == "--bigpicture") }
+    LaunchArgs {
+        big_picture: std::env::args().any(|a| a == "--bigpicture"),
+        debug: std::env::var_os("QUIVER_BP_DEBUG").is_some_and(|v| v != "0"),
+    }
 }
 
 #[cfg(test)]
