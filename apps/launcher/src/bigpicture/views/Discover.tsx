@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Entry } from "@quiverlauncher/api";
 import { useBp, useInputHandler } from "../context";
-import type { BpApp } from "../bridge";
+import { isInstalled, type BpApp } from "../bridge";
 import type { InputAction } from "../input/actions";
 import { GameHeader } from "./GameHeader";
 import { GridTab, type Back } from "./GridTab";
@@ -41,14 +41,18 @@ type Props = {
   onDetails: (app: BpApp) => void;
   onDownloads: () => void;
   consoleName: (app: BpApp) => string;
+  /** A game was got here (the shell may go to it in the library). */
+  onGot: (app: BpApp) => void;
 };
 
-export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDetails, onDownloads, consoleName }: Props) {
+export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDetails, onDownloads, consoleName, onGot }: Props) {
   const { bridge, consoles } = useBp();
   const [filter, setFilter] = useState(state.filter);
   const [consoleId, setConsoleId] = useState(state.consoleId);
   const [zone, setZone] = useState<"filters" | "grid">("grid");
   const [, setLoaded] = useState(0);
+  /** Games got during this visit: they stay put, ticked once installed, until Discover is left. */
+  const [kept, setKept] = useState<ReadonlySet<string>>(() => new Set());
   const key = consoleId ?? "*";
   if (!state.pages.has(key)) state.pages.set(key, { entries: [], cursor: null, done: false, loading: false, error: null });
   const page = state.pages.get(key)!;
@@ -77,7 +81,11 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
   }, [filter, key, page.entries.length, loadMore]);
 
   const catalog = useMemo(() => page.entries.map((e) => bridge.view(e)), [page.entries, bridge]);
-  const apps = discoverApps(bridge.apps, catalog, filter, consoleId);
+  // Memoized: the grid reports the focused app up on every change of identity, so a new copy each render would loop.
+  const apps = useMemo(
+    () => discoverApps(bridge.apps, catalog, filter, consoleId, kept).map((a) => (kept.has(a.id) && isInstalled(a) ? { ...a, fresh: true } : a)),
+    [bridge.apps, catalog, filter, consoleId, kept],
+  );
 
   // Pages of games already in the library leave little to show: keep loading until there's a screenful.
   useEffect(() => {
@@ -94,6 +102,22 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
   }, [consoles]);
   const [chip, setChip] = useState(0);
   const chosen = (c: Chip) => (c.kind === "library" ? c.id === filter : c.id === consoleId);
+  const consoleChip = () => Math.max(0, chips.findIndex((c) => c.kind === "console" && c.id === consoleId));
+  /** To a chip: a console applies as soon as it's reached; a library filter waits for A. */
+  const toChip = (i: number) => {
+    const next = Math.min(chips.length - 1, Math.max(0, i));
+    setChip(next);
+    if (chips[next].kind === "console") choose(chips[next]);
+  };
+  /** In the games, LB / RB first go up to the consoles (from the one shown); pressed again there, they change tabs. */
+  const gridGlobal = (action: InputAction) => {
+    if (action === "tabPrev" || action === "tabNext") {
+      setChip(consoleChip());
+      setZone("filters");
+      return true;
+    }
+    return onGlobal(action);
+  };
   const choose = (c: Chip) => {
     if (c.kind === "library") setFilter((state.filter = c.id));
     else setConsoleId((state.consoleId = c.id));
@@ -103,16 +127,17 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
     {
       onAction(action) {
         if (onGlobal(action)) return;
-        if (action === "left") setChip((i) => Math.max(0, i - 1));
-        else if (action === "right") setChip((i) => Math.min(chips.length - 1, i + 1));
-        else if (action === "accept") choose(chips[chip]);
-        else if (action === "down") setZone("grid");
-        else if (action === "back") back?.go();
+        if (action === "left") toChip(chip - 1);
+        else if (action === "right") toChip(chip + 1);
+        else if (action === "accept") {
+          choose(chips[chip]);
+          setZone("grid");
+        } else if (action === "down" || action === "back") setZone("grid");
       },
       hints: () => [
-        { action: "accept", label: "Choose" },
-        { action: "down", label: "Games" },
-        ...(back ? [{ action: "back" as const, label: back.label }] : []),
+        ...(chips[chip]?.kind === "library" ? [{ action: "accept" as const, label: "Show these" }] : [{ action: "accept" as const, label: "Games" }]),
+        { action: "tabNext", label: "Tabs" },
+        { action: "back", label: "Games" },
       ],
     },
     undefined,
@@ -156,10 +181,14 @@ export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDe
         apps={apps}
         memory={memory}
         onFocus={onFocus}
-        onGlobal={onGlobal}
+        onGlobal={gridGlobal}
         back={back}
         onDetails={onDetails}
         onDownloads={onDownloads}
+        onGet={(app) => {
+          setKept((k) => new Set(k).add(app.id));
+          onGot(app);
+        }}
         active={zone === "grid"}
         onEdge={(a) => a === "up" && setZone("filters")}
         onNearEnd={filter !== "inLibrary" ? loadMore : undefined}

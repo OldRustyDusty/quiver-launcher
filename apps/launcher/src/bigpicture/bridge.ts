@@ -35,6 +35,8 @@ export type BpApp = {
   projectType: ProjectType;
   tags: string[];
   art: LibraryArt & { icon?: string };
+  /** Got from Discover during this visit and now installed: shown greyed with a tick until Discover is left. */
+  fresh?: boolean;
 };
 
 export type BridgeInput = {
@@ -103,6 +105,9 @@ export const isInstalled = (app: BpApp) =>
   app.state === "installed" || app.state === "updateAvailable" || app.state === "updating" || (app.state === "error" && Boolean(app.installedVersion));
 
 /** `done` holds everyone waiting on this install: who asked first, and anyone who asked again meanwhile. */
+/** What the library's tabs show: installed games, and ones in the library downloading for the first time (as Steam does). */
+export const inLibraryView = (app: BpApp) => isInstalled(app) || (app.inLibrary && (app.state === "downloading" || app.state === "queued"));
+
 type Task = { id: string; run: () => Promise<void>; done: (() => void)[] };
 
 /** Installs one app at a time, in the order asked. */

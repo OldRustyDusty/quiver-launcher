@@ -413,6 +413,33 @@
   filter: drop-shadow(0 calc(var(--u) * 6) calc(var(--u) * 14) #0009);
 }
 
+/* Got from Discover and installed during this visit: greyed, with a tick. */
+.bp-tile.fresh .bp-tile-art,
+.bp-tile.fresh .bp-fallback {
+  filter: grayscale(0.85) brightness(0.55);
+}
+.bp-fresh {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--u) * 6);
+  color: #fff;
+  font-size: calc(var(--u) * 14);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 4px #000;
+  animation: bp-pop 260ms var(--bp-ease);
+}
+.bp-fresh svg {
+  width: calc(var(--u) * 40);
+  height: calc(var(--u) * 40);
+  color: #8ac3a2;
+  filter: drop-shadow(0 0 calc(var(--u) * 10) #8ac3a288);
+}
+
 .bp-badge {
   position: absolute;
   top: calc(var(--u) * 7);

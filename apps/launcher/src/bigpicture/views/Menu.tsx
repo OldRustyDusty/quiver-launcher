@@ -15,6 +15,10 @@ export function Menu({ onClose }: { onClose: () => void }) {
       label: `Updates when playing: ${UPDATE_LABELS[behavior]}`,
       run: () => sidecar.setSettings({ updateBehavior: behavior === "ask" ? "off" : behavior === "off" ? "auto" : "ask" }),
     },
+    {
+      label: `After getting a game: ${data.settings.afterGet === "library" ? "Go to it in the library" : "Stay in Discover"}`,
+      run: () => sidecar.setSettings({ afterGet: data.settings.afterGet === "library" ? "stay" : "library" }),
+    },
     { label: "Switch to desktop mode", run: exit },
   ];
   const [index, setIndex] = useState(0);

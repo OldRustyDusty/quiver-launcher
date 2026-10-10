@@ -15,11 +15,17 @@ describe("GridNavigator", () => {
     expect(grid(5).move("down")).toEqual({ moved: true, index: 9 });
   });
 
-  it("reports an edge instead of wrapping", () => {
-    expect(grid(4).move("left")).toEqual({ moved: false, edge: "left" });
-    expect(grid(3).move("right")).toEqual({ moved: false, edge: "right" });
-    expect(grid(2).move("up")).toEqual({ moved: false, edge: "up" });
+  it("goes left and right in reading order, across rows", () => {
+    expect(grid(4).move("left")).toEqual({ moved: true, index: 3 });
+    expect(grid(8).move("left")).toEqual({ moved: true, index: 7 });
+    expect(grid(3).move("right")).toEqual({ moved: true, index: 4 });
+    expect(grid(7).move("right")).toEqual({ moved: true, index: 8 });
+  });
+
+  it("reports an edge only before the first tile, after the last, and above or below the grid", () => {
+    expect(grid(0).move("left")).toEqual({ moved: false, edge: "left" });
     expect(grid(9).move("right")).toEqual({ moved: false, edge: "right" });
+    expect(grid(2).move("up")).toEqual({ moved: false, edge: "up" });
     expect(grid(9).move("down")).toEqual({ moved: false, edge: "down" });
   });
 

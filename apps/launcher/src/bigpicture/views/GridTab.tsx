@@ -29,6 +29,8 @@ type Props = {
   onEdge?: (action: InputAction) => void;
   /** Focus is within two rows of the end: time to load more. */
   onNearEnd?: () => void;
+  /** A game was got from this grid (Discover). */
+  onGet?: (app: BpApp) => void;
   /** The mouse went to a tile while something above had the input: the grid takes it. */
   onPointerFocus?: () => void;
   empty?: { title: string; text: string };
@@ -65,9 +67,9 @@ const tileIndex = (target: EventTarget) => {
   return index == null ? null : Number(index);
 };
 
-export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetails, onDownloads, active = true, onEdge, onNearEnd, onPointerFocus, empty }: Props) {
+export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetails, onDownloads, active = true, onEdge, onNearEnd, onGet, onPointerFocus, empty }: Props) {
   const { scale, data, pointer } = useBp();
-  const actions = useTileActions(onDownloads);
+  const actions = useTileActions(onDownloads, onGet);
   const scroller = useRef<HTMLDivElement>(null);
   const { width, height } = useElementSize(scroller);
   const m = gridMetrics(scale, width);

@@ -33,11 +33,15 @@ export function useBridge() {
     view: (entry: Entry) => toBpApp(entry, input, library.find((i) => i.id === entry.id && !i.removed)),
     play: (id: string) => launcher.play(id),
     /** Adds the app to the library and installs it (or the given release). */
-    install: (entry: Entry, release?: Release) =>
-      queue.enqueue(entry.id, async () => {
+    install: (entry: Entry, release?: Release) => {
+      // In the library at once, so it shows there (and in its console's tab) while it waits its turn.
+      launcher.cache([entry]);
+      launcher.add(entry);
+      return queue.enqueue(entry.id, async () => {
         await settle();
         await latest.current.get(entry, release);
-      }),
+      });
+    },
     /** Installs the newest verified release over the installed one. */
     update: (id: string) =>
       queue.enqueue(id, async () => {

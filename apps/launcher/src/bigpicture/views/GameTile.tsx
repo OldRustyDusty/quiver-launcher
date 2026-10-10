@@ -4,7 +4,7 @@
  * comes from the view (`focused`), not the browser.
  */
 import { memo, useState } from "react";
-import { AlertTriangle, ArrowUp, Download, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowUp, CheckCircle2, Download, Loader2 } from "lucide-react";
 import type { BpApp } from "../bridge";
 import { useIconColors } from "../art/useIconColors";
 
@@ -53,7 +53,7 @@ export const GameTile = memo(function GameTile({ app, focused, x, y, w, h, index
   const busy = app.state === "downloading" || app.state === "updating";
   return (
     <div
-      className={`bp-tile${focused ? " focused" : ""}${art ? "" : " no-art"}`}
+      className={`bp-tile${focused ? " focused" : ""}${art ? "" : " no-art"}${app.fresh ? " fresh" : ""}`}
       aria-label={app.title}
       aria-current={focused || undefined}
       data-index={index}
@@ -66,7 +66,14 @@ export const GameTile = memo(function GameTile({ app, focused, x, y, w, h, index
             <span>{app.title}</span>
           </div>
         )}
-        <Badge app={app} />
+        {app.fresh ? (
+          <div className="bp-fresh">
+            <CheckCircle2 aria-hidden="true" />
+            <span>Installed</span>
+          </div>
+        ) : (
+          <Badge app={app} />
+        )}
         {busy && (
           <div className={`bp-progress${app.progress === null ? " indeterminate" : ""}`}>
             <i style={{ width: `${(app.progress ?? 0.3) * 100}%` }} />

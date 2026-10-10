@@ -1,6 +1,6 @@
 /** What Discover and Downloads list (spec §8), and the remembered release file. Pure. */
 import type { Asset } from "@quiverlauncher/api";
-import { isInstalled, type BpApp } from "../bridge";
+import { inLibraryView, isInstalled, type BpApp } from "../bridge";
 import type { BpSidecar } from "../data/sidecar";
 import { isBusy } from "./tileActions";
 
@@ -8,16 +8,26 @@ import { isBusy } from "./tileActions";
 export type LibraryFilter = "notInLibrary" | "inLibrary" | "all";
 
 /**
- * Discover: games to get. Installed games aren't here (they're in the library's tabs).
+ * Discover: games to get. Games in the library's tabs (installed, or downloading
+ * for the first time) aren't here, except those got during this visit (`kept`):
+ * they stay where they were, so getting one doesn't move the others.
  * `library` is the library as Big Picture shows it; `catalog` the catalog's pages
  * (already for the chosen console), seen as apps.
  */
-export function discoverApps(library: readonly BpApp[], catalog: readonly BpApp[], filter: LibraryFilter, consoleId: string | null): BpApp[] {
+export function discoverApps(
+  library: readonly BpApp[],
+  catalog: readonly BpApp[],
+  filter: LibraryFilter,
+  consoleId: string | null,
+  kept: ReadonlySet<string> = new Set(),
+): BpApp[] {
   const ids = new Set(library.map((a) => a.id));
   const onConsole = (a: BpApp) => !consoleId || a.basedOn === consoleId || a.consoles.includes(consoleId);
-  const mine = library.filter((a) => !isInstalled(a) && onConsole(a));
-  const theirs = catalog.filter((a) => !ids.has(a.id));
-  return filter === "inLibrary" ? mine : filter === "notInLibrary" ? theirs : [...mine, ...theirs];
+  const mine = library.filter((a) => onConsole(a) && (kept.has(a.id) || !inLibraryView(a)));
+  const theirs = catalog.filter((a) => !ids.has(a.id) || kept.has(a.id));
+  if (filter === "inLibrary") return mine;
+  if (filter === "notInLibrary") return theirs;
+  return [...mine.filter((a) => !kept.has(a.id)), ...theirs];
 }
 
 export type DownloadRow = { kind: "updateAll"; apps: BpApp[] } | { kind: "app"; app: BpApp; status: "active" | "queued" | "failed" | "done" };

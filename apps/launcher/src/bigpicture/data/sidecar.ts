@@ -8,6 +8,8 @@
 export type UpdateBehavior = "ask" | "off" | "auto";
 export type ConsoleTabOrder = "manufacturerThenYear" | "gameCount" | "alphabetical";
 export type AllSort = "name" | "recent";
+/** After Get in Discover: stay there (get several in a row), or go to the game in the library. */
+export type AfterGet = "stay" | "library";
 
 export type BpSettings = {
   startInBigPicture: boolean;
@@ -21,6 +23,7 @@ export type BpSettings = {
   /** Multiplies the size worked out from the window's height (720p is 1). */
   uiScale: number;
   reduceMotion: boolean;
+  afterGet: AfterGet;
 };
 
 /** A picture of the player's own, by URL or file path, in place of the catalog's. */
@@ -57,6 +60,7 @@ export const DEFAULT_SETTINGS: BpSettings = {
   monitor: null,
   uiScale: 1,
   reduceMotion: false,
+  afterGet: "stay",
 };
 
 type Raw = Record<string, unknown>;
@@ -81,6 +85,7 @@ function settingsFrom(raw: unknown): BpSettings {
     monitor: typeof s.monitor === "string" && s.monitor ? s.monitor : null,
     uiScale: scale,
     reduceMotion: bool(s.reduceMotion, d.reduceMotion),
+    afterGet: oneOf(s.afterGet, ["stay", "library"], d.afterGet),
   };
 }
 

@@ -4,9 +4,9 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBp } from "../context";
-import { isInstalled, type BpApp } from "../bridge";
+import { inLibraryView, type BpApp } from "../bridge";
 import { resolveConsole } from "../consoles/resolve";
-import { buildTabs, cycleTab, keepTab } from "../consoles/tabs";
+import { buildTabs, consoleTabId, cycleTab, keepTab } from "../consoles/tabs";
 import type { InputAction } from "../input/actions";
 import type { AllSort } from "../data/sidecar";
 import { TabStrip } from "./TabStrip";
@@ -35,7 +35,8 @@ export function Shell() {
     () => new Map(bridge.apps.map((app) => [app.id, resolveConsole(app, data.apps[app.id]?.consoleOverride)])),
     [bridge.apps, data.apps],
   );
-  const installed = useMemo(() => bridge.apps.filter(isInstalled), [bridge.apps]);
+  /** The library's tabs: installed games and first downloads. */
+  const installed = useMemo(() => bridge.apps.filter(inLibraryView), [bridge.apps]);
   const busy = bridge.apps.filter((a) => a.state === "downloading" || a.state === "updating" || a.state === "queued").length;
   const tabs = useMemo(
     () => buildTabs(installed.map((a) => consoleOf.get(a.id)!), consoles, settings, busy),
@@ -73,6 +74,28 @@ export function Shell() {
   const library = useRef(tabs[0].id);
   if (tab.kind !== "discover" && tab.kind !== "downloads") library.current = tab.id;
   const cycle = (by: 1 | -1) => go(cycleTab(tabs, tab.id, library.current, by));
+
+  /**
+   * After Get in Discover, with "Go to library": the game's console tab with it focused. The tab may only
+   * appear once the store has it, a moment later; until then All has it focused.
+   */
+  const pending = useRef<{ tabId: string; until: number } | null>(null);
+  const goToGame = (app: BpApp) => {
+    const tabId = consoleTabId(resolveConsole(app, data.apps[app.id]?.consoleOverride));
+    memory.current.set(tabId, app.id);
+    memory.current.set("all", app.id);
+    pending.current = { tabId, until: Date.now() + 8000 };
+    go(tabs.some((t) => t.id === tabId) ? tabId : "all");
+  };
+  useEffect(() => {
+    const p = pending.current;
+    if (!p) return;
+    if (Date.now() > p.until || tab.id === p.tabId) pending.current = null;
+    else if (tabs.some((t) => t.id === p.tabId)) {
+      pending.current = null;
+      go(p.tabId);
+    }
+  });
   /** Actions every tab's view leaves to the frame. */
   const global = (action: InputAction) => {
     if (action === "tabPrev") step(-1);
@@ -144,6 +167,7 @@ export function Shell() {
               onDetails={openDetails}
               onDownloads={toDownloads}
               consoleName={consoleName}
+              onGot={(app) => settings.afterGet === "library" && goToGame(app)}
             />
           ) : (
             <Downloads onFocus={setFocused} onGlobal={global} back={backToLibrary} onDetails={openDetails} />

@@ -39,7 +39,8 @@ export function tileHints(app: BpApp | null | undefined, back?: Back): ButtonHin
   return hints;
 }
 
-export function useTileActions(onDownloads: () => void) {
+/** `onGet`: a game was got (added and downloading) from this view. */
+export function useTileActions(onDownloads: () => void, onGet?: (app: BpApp) => void) {
   const { bridge, play } = useBp();
   return {
     /** A: play, get, retry, or see the download. */
@@ -47,7 +48,10 @@ export function useTileActions(onDownloads: () => void) {
       if (!app) return;
       if (app.state === "installed" || app.state === "updateAvailable" || (app.state === "error" && app.installedVersion)) play(app.id);
       else if (isBusy(app)) onDownloads();
-      else void bridge.install(app.entry);
+      else {
+        void bridge.install(app.entry);
+        onGet?.(app);
+      }
     },
     /** X: a manual update ignores the update setting and a skipped version (spec §9). */
     update(app: BpApp | null | undefined) {

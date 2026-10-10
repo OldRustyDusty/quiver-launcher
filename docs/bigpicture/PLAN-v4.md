@@ -70,6 +70,14 @@ apps/launcher/src-tauri/src/bigpicture/
 * **LT / RT (changed 2026-10-10 at the user's request; replaces spec §5.2's page and letter jumps):** they go straight
   between the library tab last shown (Home, All or a console), Discover and Downloads, round and round. RT goes forward, LT
   goes back. LB / RB still step through every tab. Page and letter jumps felt like skipping through games at random.
+* **Grids wrap Left/Right in reading order (2026-10-10, at the user's request; spec §8.2 had edges at every row end).**
+  Up and Down are unchanged, and shelves don't wrap.
+* **LB / RB on Discover (2026-10-10, at the user's request):** from the games, the first press goes to the console chips,
+  starting on the console shown. Moving across console chips applies each one at once. Pressed again there, LB / RB change tabs.
+* **After Get (2026-10-10, at the user's request):** the setting `afterGet` is "stay" (default) or "library". With
+  stay, the game stays in place in Discover with its progress, then greyed with ✓ Installed (A plays) until Discover is left.
+  With library, Big Picture goes to the game's console tab with the game focused. Either way, the game joins the library at
+  once, and library tabs show first downloads (`inLibraryView`).
 * While Big Picture is active, upstream's spatial navigation is suspended (a small exported switch in `spatial.ts`, an upstream touch),
   and Big Picture owns keyboard and pad input. The keyboard map is as in §5.1.
 * RepeatFilter, InputGate and InputRouter are pure TS with fake-clock vitest tests. The timings are as in §5.4.

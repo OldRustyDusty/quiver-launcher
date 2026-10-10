@@ -23,6 +23,14 @@ describe("discoverApps", () => {
     expect(discoverApps(library, catalog, "all", null).map((a) => a.id)).toEqual(["mine", "ps", "new"]);
   });
 
+  it("keeps a game got during this visit where it was, whatever its state now", () => {
+    const got = [...library, app("new", "downloading")];
+    const kept = new Set(["new"]);
+    expect(discoverApps(got, catalog, "notInLibrary", null, kept).map((a) => a.id)).toEqual(["new"]);
+    expect(discoverApps(got, catalog, "all", null, kept).map((a) => a.id)).toEqual(["mine", "ps", "new"]);
+    expect(discoverApps(got, catalog, "notInLibrary", null).map((a) => a.id)).toEqual([]);
+  });
+
   it("narrows the library's games to the chosen console (the catalog's are fetched for it)", () => {
     expect(discoverApps(library, [], "inLibrary", "ps1").map((a) => a.id)).toEqual(["ps"]);
   });
