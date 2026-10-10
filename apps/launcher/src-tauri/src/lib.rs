@@ -1,3 +1,4 @@
+mod bigpicture;
 mod browser;
 mod gamepad;
 mod install;
@@ -534,7 +535,9 @@ pub fn run() {
             open_folder,
             create_app_folder,
             pick_program,
-            gamepad::controllers
+            gamepad::controllers,
+            bigpicture::bp_read_sidecar,
+            bigpicture::bp_write_sidecar
         ])
         .run(tauri::generate_context!())
         .expect("error while running Quiver Launcher");

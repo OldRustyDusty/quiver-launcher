@@ -1,0 +1,56 @@
+/** The bridge over the live store, for Big Picture's views. */
+import { useMemo, useRef, useSyncExternalStore } from "react";
+import type { AppQuery, Entry, Release } from "@quiverlauncher/api";
+import { useLauncher } from "../store";
+import { InstallQueue, libraryApps, toBpApp, type BridgeInput } from "./bridge";
+
+/** One queue for the one store. */
+const queue = new InstallQueue();
+
+/** A turn of the event loop, so React has applied the last install's changes before the next one reads them. */
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+export function useBridge() {
+  const launcher = useLauncher();
+  // Queued installs run later: they must use the store as it is then, not as it was when they were queued.
+  const latest = useRef(launcher);
+  latest.current = launcher;
+  const queued = useSyncExternalStore(queue.subscribe, () => queue.queued);
+  const { library, installs, jobs, catalog } = launcher;
+  const input: BridgeInput = useMemo(() => ({ library, installs, jobs, catalog, queued }), [library, installs, jobs, catalog, queued]);
+  const apps = useMemo(() => libraryApps(input), [input]);
+
+  return {
+    apps,
+    input,
+    config: launcher.config,
+    consoles: launcher.consoles,
+    consoleNames: launcher.consoleNames,
+    /** The release file the player must pick, when several fit. */
+    choice: launcher.choice,
+    activeInstall: queue.active,
+    /** An app from the catalog (Discover) as Big Picture shows it. */
+    view: (entry: Entry) => toBpApp(entry, input, library.find((i) => i.id === entry.id && !i.removed)),
+    play: (id: string) => launcher.play(id),
+    /** Adds the app to the library and installs it (or the given release). */
+    install: (entry: Entry, release?: Release) =>
+      queue.enqueue(entry.id, async () => {
+        await settle();
+        await latest.current.get(entry, release);
+      }),
+    /** Installs the newest verified release over the installed one. */
+    update: (id: string) =>
+      queue.enqueue(id, async () => {
+        await settle();
+        const entry = latest.current.catalog[id];
+        if (entry) await latest.current.get(entry);
+      }),
+    cancelQueued: (id: string) => queue.cancel(id),
+    /** Uninstalls and removes from the library, as upstream's Remove does. */
+    uninstall: (id: string) => launcher.remove(id),
+    releases: (slug: string) => launcher.client.releases(slug),
+    discover: (query: AppQuery) => launcher.client.apps({ os: launcher.config.os, ...query }),
+  };
+}
+
+export type Bridge = ReturnType<typeof useBridge>;
