@@ -20,6 +20,7 @@ import { InputRouter } from "./input/router";
 import { ConsoleCatalog } from "./consoles/consoles";
 import { useBridge } from "./useBridge";
 import { isInstalled, type BpState } from "./bridge";
+import { withArtOverrides } from "./art/art";
 import { Shell } from "./views/Shell";
 import { usePlayFlow } from "./updates/PlayFlow";
 import { AssetPicker } from "./updates/AssetPicker";
@@ -67,13 +68,18 @@ function useWindowHeight() {
 
 function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean }) {
   const launcher = useLauncher();
-  const bridge = useBridge();
+  const store = useBridge();
   const data = useSyncExternalStore(sidecar.subscribe, () => sidecar.snapshot);
+  // The player's own pictures over the catalog's (spec §10); everything else reads the bridge as it is.
+  const apps = useMemo(() => withArtOverrides(store.apps, data.apps), [store.apps, data.apps]);
+  const bridge = useMemo(() => ({ ...store, apps }), [store, apps]);
   const [family, setFamily] = useState<InputFamily>("keyboard");
   /** QUIVER_BP_DEBUG=1: the last controller events, and whether input is getting through. */
   const [events, setEvents] = useState<string[]>([]);
   /** The cursor shows while the mouse moves, and hides again at the first key or button. */
   const [pointer, setPointer] = useState(false);
+  /** A game Big Picture started is running (spec §11): input is closed and animations rest. */
+  const [inGame, setInGame] = useState(false);
   const height = useWindowHeight();
   const scale = Math.max(0.6, (height / 720) * data.settings.uiScale);
 
@@ -158,12 +164,29 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
     // The native window's focus, not the page's: a webview not clicked yet can say it isn't focused while its window is in front.
     const win = getCurrentWindow();
     const setActive = (active: boolean) => {
+      // Back in front during a game (alt-tab, or a launcher that never quits): the player is here, listen again.
+      if (active && gate.gameInForeground) {
+        gate.gameInForeground = false;
+        setInGame(false);
+      }
       gate.windowActive = active;
       if (debug) setEvents((e) => [`${new Date().toLocaleTimeString(undefined, { hour12: false })} window ${active ? "in front" : "behind"}`, ...e].slice(0, 8));
     };
     void win.isFocused().then(setActive, () => setActive(true));
     const focus = win.onFocusChanged(({ payload }) => setActive(payload));
+    // Game sessions (src-tauri/src/bigpicture/session.rs): closed while one runs, and back in front when it ends.
+    const started = listen("bp-game-started", () => {
+      gate.gameInForeground = true;
+      setInGame(true);
+    });
+    const exited = listen("bp-game-exited", () => {
+      gate.gameInForeground = false;
+      setInGame(false);
+      void bpNative.focus().catch(() => {});
+    });
     return () => {
+      void started.then((stop) => stop());
+      void exited.then((stop) => stop());
       suspendSpatialNavigation(false);
       window.removeEventListener("keydown", keyDown, true);
       window.removeEventListener("keyup", keyUp, true);
@@ -204,7 +227,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
   return (
     <BpContext.Provider value={value}>
       <div
-        className={`bp-root${data.settings.reduceMotion ? " bp-reduce-motion" : ""}${pointer ? " bp-pointer" : ""}`}
+        className={`bp-root${data.settings.reduceMotion ? " bp-reduce-motion" : ""}${pointer ? " bp-pointer" : ""}${inGame ? " bp-in-game" : ""}`}
         style={{ "--u": `${scale}px` } as CSSProperties}
         role="application"
         aria-label="Quiver Launcher Big Picture"

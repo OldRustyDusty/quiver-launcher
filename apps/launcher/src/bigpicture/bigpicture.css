@@ -400,6 +400,12 @@
   height: 100%;
   padding-bottom: 30%;
 }
+.bp-fallback-letter {
+  color: #ffffffcc;
+  font-size: calc(var(--u) * 56);
+  font-weight: 800;
+  text-shadow: 0 calc(var(--u) * 4) calc(var(--u) * 16) #0008;
+}
 .bp-fallback img {
   width: 46%;
   aspect-ratio: 1;
@@ -1094,6 +1100,13 @@
   color: #fde68a;
   font: calc(var(--u) * 12) / 1.4 ui-monospace, Consolas, monospace;
   pointer-events: none;
+}
+
+/* While a game runs, nothing moves (spec §11). */
+.bp-in-game *,
+.bp-in-game *::before,
+.bp-in-game *::after {
+  animation-play-state: paused !important;
 }
 
 /* Reduce motion: no scaling, sliding or sweeping; the focus border stays. */

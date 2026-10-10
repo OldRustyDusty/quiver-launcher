@@ -165,7 +165,7 @@ fn target(data: &Data, folder: &str, dir: Option<String>, preferred: &[String], 
 }
 
 #[tauri::command]
-fn launch(data: State<Data>, folder: String, dir: Option<String>, preferred: Vec<String>, wine: bool, program: Option<String>) -> Result<(), String> {
+fn launch(app: tauri::AppHandle, data: State<Data>, folder: String, dir: Option<String>, preferred: Vec<String>, wine: bool, program: Option<String>) -> Result<(), String> {
     let target = target(&data, &folder, dir, &preferred, wine, program)?;
     let mut command = Command::new(&target.program);
     command.args(&target.args);
@@ -179,7 +179,8 @@ fn launch(data: State<Data>, folder: String, dir: Option<String>, preferred: Vec
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
-        .map(|_| ())
+        // Big Picture (fork) watches for the game ending.
+        .map(|child| bigpicture::session::track(&app, child, target.dir.clone()))
         .map_err(|e| match e.kind() {
             std::io::ErrorKind::NotFound if wine => "This is a Windows app. Install Wine to play it on Linux.".into(),
             // A downloaded AppImage or program isn't executable until it's allowed to run.

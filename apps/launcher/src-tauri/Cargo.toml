@@ -34,6 +34,8 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 dirs = "6"
 crc32fast = "1"
 tauri-plugin-dialog = "2"
+# Big Picture (fork): which processes run from a game's folder (src/bigpicture/session.rs).
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 
 # Big Picture (fork): controllers through SDL3, built from source and linked in (src/bigpicture/pads.rs).
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]

@@ -6,6 +6,7 @@
 import { memo, useState } from "react";
 import { AlertTriangle, ArrowUp, Download, Loader2 } from "lucide-react";
 import type { BpApp } from "../bridge";
+import { useIconColors } from "../art/useIconColors";
 
 /** A steady hue per app, for tiles without art. */
 export function hueOf(id: string) {
@@ -14,12 +15,16 @@ export function hueOf(id: string) {
   return h % 360;
 }
 
+/** A tile for an app without a 2:3 picture (spec §10): its icon on a gradient of the icon's own colours, the title below. */
 export function FallbackArt({ app }: { app: BpApp }) {
   const [iconFailed, setIconFailed] = useState(false);
+  const icon = app.art.icon && !iconFailed ? app.art.icon : undefined;
+  const colors = useIconColors(icon);
   const hue = hueOf(app.id);
+  const [top, bottom] = colors ?? [`hsl(${hue} 45% 32%)`, `hsl(${(hue + 40) % 360} 50% 12%)`];
   return (
-    <div className="bp-fallback" style={{ background: `linear-gradient(180deg, hsl(${hue} 45% 32%), hsl(${(hue + 40) % 360} 50% 12%))` }}>
-      {app.art.icon && !iconFailed ? <img src={app.art.icon} alt="" onError={() => setIconFailed(true)} /> : null}
+    <div className="bp-fallback" style={{ background: `radial-gradient(circle at 50% 35%, ${top} 0%, transparent 70%), linear-gradient(180deg, ${top}, ${bottom})` }}>
+      {icon ? <img src={icon} alt="" onError={() => setIconFailed(true)} /> : <span className="bp-fallback-letter">{app.title.charAt(0)}</span>}
     </div>
   );
 }

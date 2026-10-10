@@ -7,6 +7,7 @@ use super::Data;
 
 #[cfg(any(windows, target_os = "linux"))]
 mod pads;
+pub mod session;
 
 /// Big Picture's own settings and per-app state, beside upstream's JSON files,
 /// which it never writes itself.
@@ -66,7 +67,17 @@ pub fn bp_launch_args() -> LaunchArgs {
 pub async fn bp_focus(window: tauri::WebviewWindow) -> bool {
     let _ = window.unminimize();
     let _ = window.show();
+    // tao tries SetForegroundWindow, then again after a simulated Alt press.
     let _ = window.set_focus();
+    if window.is_focused().unwrap_or(false) {
+        return true;
+    }
+    // Last resort (spec §11): minimizing and restoring brings a window in front.
+    let _ = window.minimize();
+    std::thread::sleep(std::time::Duration::from_millis(150));
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+    std::thread::sleep(std::time::Duration::from_millis(150));
     window.is_focused().unwrap_or(false)
 }
 

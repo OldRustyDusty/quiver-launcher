@@ -27,7 +27,15 @@ type Entry = { id: string; slug: string; verified?: { version: string; releasedA
 async function seed() {
   if (params.has("reset")) Object.keys(localStorage).filter((k) => k.startsWith(PREFIX)).forEach((k) => localStorage.removeItem(k));
   if (load("library")) return;
-  const page = (await (await fetch(`${API}/apps?limit=${params.get("apps") ?? 60}`)).json()) as { items: Entry[] };
+  // ?apps=250 for a big library (the catalog sends up to 100 a page).
+  const wanted = Number(params.get("apps") ?? 60);
+  const page = { items: [] as Entry[] };
+  for (let cursor: string | null = null; page.items.length < wanted; ) {
+    const next = (await (await fetch(`${API}/apps?limit=${Math.min(100, wanted - page.items.length)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`)).json()) as { items: Entry[]; nextCursor: string | null; isDone: boolean };
+    page.items.push(...next.items);
+    if (next.isDone || !next.nextCursor) break;
+    cursor = next.nextCursor;
+  }
   const now = Date.now();
   const installs: Record<string, unknown> = {};
   page.items.forEach((e, i) => {
@@ -92,7 +100,10 @@ mockIPC(
       case "install":
         return fakeInstall(a.request);
       case "launch":
+        // A game that runs for three seconds.
         console.info("[preview] launch", a);
+        void emit("bp-game-started", 1);
+        setTimeout(() => void emit("bp-game-exited", 1), 3000);
         return null;
       case "find_v3_library":
         return [];
