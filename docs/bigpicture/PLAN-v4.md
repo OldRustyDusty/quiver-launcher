@@ -202,8 +202,24 @@ outside the games folder, such as `Q:\N64 PC Ports\…`) **stays where it is**, 
 * Quiver 4 marks its installs with `.quiver-version`. It updates and removes a folder only when that file, or (for adopted
   installs) `version.txt`, is there. An install with `dir` set lives there; otherwise it's `apps/<folder>`.
 
-**Opt-in.** Offered at import ("Keep Quiver 3 in step, in one games folder"), and in Big Picture Settings for people who
-imported earlier. Off by default. The setting and the backup's location are in `bigpicture.json`.
+**Opt-in.** Off by default, and never switched on without a yes. Users who never had 3.5 never see any of it. The setting,
+the "don't ask again" flag and the backup's location are in `bigpicture.json`.
+
+* **At import:** right after "Bring them over", in Big Picture and in desktop mode. Desktop mode's import banner is upstream's,
+  so the fork shows the follow-up itself, like the controller note.
+* **Once, for people who imported earlier:** on the first start with this feature, if 3.5 is found and they haven't opted in.
+  It carries the preview counts and has a third button, *Don't ask again*. *Not now* asks again on the next start.
+* **Any time:** in Big Picture Settings.
+
+Wording (user's direction, 2026-10-10). Avoid "in step" and "sync". Name the app as **Big Quiver Launcher**, and the old one as
+**Quiver 3**.
+
+> **Use the same games folder as Quiver 3?**
+> Games you get in Big Quiver Launcher will install to `<3.5 games folder>` with your Quiver 3 games, and show up in Quiver 3 too.
+> [Yes] [Not now] ([Don't ask again] on the one-time prompt)
+
+The Settings row is **Use the same games folder as Quiver 3** (On / Off), with the detail *Games install to `<folder>` and show
+up in Quiver 3 too*.
 
 **Catch-up on opt-in.** Games are matched by provider and repository, as upstream's import does. First a dry-run preview of
 counts and names. If 3.5 is running, the user is asked to close it. Then `apps.json` is backed up and the changes are applied:
@@ -242,7 +258,7 @@ partial copy.
   playtime, art and controller layout. List the affected games.
 * Saves inside a game's folder move with it.
 
-**Turning it off.** "Stop keeping Quiver 3 in step" turns it off. It doesn't undo anything; the opt-in backup restores
+**Turning it off.** Switching the setting off stops it, but doesn't undo anything; the opt-in backup restores `apps.json` exactly.
 `apps.json` exactly.
 
 **Upstream touches (need logging in FORK_CHANGES).** `store.tsx`, about 15 lines:
