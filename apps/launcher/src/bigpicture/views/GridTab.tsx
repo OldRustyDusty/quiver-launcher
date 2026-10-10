@@ -8,11 +8,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefO
 import { useBp, useInputHandler } from "../context";
 import type { BpApp } from "../bridge";
 import type { InputAction } from "../input/actions";
-import type { ButtonHint } from "../input/router";
 import { GridNavigator, jumpLetter } from "../nav/grid";
 import { GameTile } from "./GameTile";
+import { tileHints, useTileActions, type Back } from "./tileActions";
 
-export type Back = { label: string; go: () => void };
+export type { Back };
 
 type Props = {
   tabId: string;
@@ -52,39 +52,9 @@ export function useElementSize(ref: RefObject<HTMLElement | null>) {
   return size;
 }
 
-/** What A does on a tile, and the hints that go with it (spec §5.2). */
-export function tileHints(app: BpApp | undefined, back?: Back): ButtonHint[] {
-  const hints: ButtonHint[] = [];
-  switch (app?.state) {
-    case "installed":
-      hints.push({ action: "accept", label: "Play" });
-      break;
-    case "updateAvailable":
-      hints.push({ action: "accept", label: "Play" }, { action: "secondary", label: "Update" });
-      break;
-    case "downloading":
-    case "updating":
-      hints.push({ action: "accept", label: "Downloads" });
-      break;
-    case "queued":
-      hints.push({ action: "accept", label: "Downloads" }, { action: "secondary", label: "Cancel", hold: true });
-      break;
-    case "error":
-      hints.push({ action: "accept", label: "Retry" });
-      break;
-    case "notInstalled":
-      hints.push({ action: "accept", label: "Get" });
-      break;
-  }
-  if (app) hints.push({ action: "details", label: "Details" });
-  if (back) hints.push({ action: "back", label: back.label });
-  return hints;
-}
-
-export const CANCEL_HOLD_MS = 1000;
-
 export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, back, onDetails, onDownloads }: Props) {
-  const { bridge, scale, data } = useBp();
+  const { scale, data } = useBp();
+  const actions = useTileActions(onDownloads);
   const scroller = useRef<HTMLDivElement>(null);
   const { width, height } = useElementSize(scroller);
   const m = gridMetrics(scale, width);
@@ -149,15 +119,10 @@ export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, ba
           return;
         }
         case "accept":
-          if (!app) return;
-          if (app.state === "installed" || app.state === "updateAvailable") void bridge.play(app.id);
-          else if (app.state === "downloading" || app.state === "updating" || app.state === "queued") onDownloads();
-          else if (app.state === "error") void (app.installedVersion ? bridge.update(app.id) : bridge.install(app.entry));
-          else void bridge.install(app.entry);
+          actions.primary(app);
           return;
         case "secondary":
-          // A manual update ignores the update setting and a skipped version (spec §9).
-          if (app?.state === "updateAvailable") void bridge.update(app.id);
+          actions.update(app);
           return;
         case "details":
           if (app) onDetails(app);
@@ -167,10 +132,8 @@ export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, ba
           return;
       }
     },
-    holdFor: (action) => (action === "secondary" && app?.state === "queued" ? CANCEL_HOLD_MS : undefined),
-    onHold(action) {
-      if (action === "secondary" && app?.state === "queued") bridge.cancelQueued(app.id);
-    },
+    holdFor: (action) => (action === "secondary" ? actions.holdFor(app) : undefined),
+    onHold: (action) => action === "secondary" && actions.cancel(app),
     hints: () => tileHints(app, back),
   });
 

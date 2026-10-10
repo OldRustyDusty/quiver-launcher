@@ -16,6 +16,8 @@ import { Backdrop, GameHeader } from "./GameHeader";
 import { Details } from "./Details";
 import { Menu } from "./Menu";
 import { Placeholder } from "./Placeholder";
+import { Home } from "./Home";
+import { ShelfNavigator } from "../nav/shelf";
 
 type Overlay = { kind: "details"; id: string } | { kind: "menu" } | null;
 
@@ -48,11 +50,15 @@ export function Shell() {
 
   /** Each tab's focused app, so coming back to a tab finds the same tile. */
   const memory = useRef(new Map<string, string>());
+  const homeNav = useRef(new ShelfNavigator());
   const [focused, setFocused] = useState<BpApp | null>(null);
+  /** Which way the last tab change went, for the page's slide. */
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [overlay, setOverlay] = useState<Overlay>(null);
 
   const step = (by: 1 | -1) => {
     const i = tabs.findIndex((t) => t.id === tab.id);
+    setDirection(by);
     setSelectedId(tabs[Math.min(tabs.length - 1, Math.max(0, i + by))].id);
   };
   /** Actions every tab's view leaves to the frame. */
@@ -73,30 +79,43 @@ export function Shell() {
     if (tab.kind === "console") return sortApps(installed.filter((a) => consoleOf.get(a.id) === tab.console!.id), "name");
     return [];
   }, [tab, installed, consoleOf, settings.allSort]);
-  const shown = grid ? focused : null;
+  const shown = grid || tab.kind === "home" ? focused : null;
+  const consoleName = (app: BpApp) => consoles.get(consoleOf.get(app.id) ?? "other").name;
 
   return (
     <>
       <Backdrop app={shown} />
       <TabStrip tabs={tabs} selected={tab.id} />
-      <GameHeader app={shown} consoleName={shown ? consoles.get(consoleOf.get(shown.id) ?? "other").name : ""} />
       <main className="bp-content">
-        {grid ? (
-          <GridTab
-            key={tab.id}
-            tabId={tab.id}
-            apps={apps}
-            letterJump={tab.kind === "all" && settings.allSort === "name"}
-            memory={memory.current}
-            onFocus={setFocused}
-            onGlobal={global}
-            back={toFirst}
-            onDetails={(app) => setOverlay({ kind: "details", id: app.id })}
-            onDownloads={() => setSelectedId("downloads")}
-          />
-        ) : (
-          <Placeholder key={tab.id} tab={tab} onGlobal={global} back={toFirst} />
-        )}
+        <div className={`bp-page${direction < 0 ? " from-left" : ""}`} key={tab.id}>
+          {tab.kind === "home" ? (
+            <Home
+              nav={homeNav.current}
+              onFocus={setFocused}
+              onGlobal={global}
+              onDetails={(app) => setOverlay({ kind: "details", id: app.id })}
+              onDownloads={() => setSelectedId("downloads")}
+              consoleName={consoleName}
+            />
+          ) : grid ? (
+            <div className="bp-library">
+              <GameHeader app={shown} consoleName={shown ? consoleName(shown) : ""} />
+              <GridTab
+                tabId={tab.id}
+                apps={apps}
+                letterJump={tab.kind === "all" && settings.allSort === "name"}
+                memory={memory.current}
+                onFocus={setFocused}
+                onGlobal={global}
+                back={toFirst}
+                onDetails={(app) => setOverlay({ kind: "details", id: app.id })}
+                onDownloads={() => setSelectedId("downloads")}
+              />
+            </div>
+          ) : (
+            <Placeholder tab={tab} onGlobal={global} back={toFirst} />
+          )}
+        </div>
       </main>
       <HintBar />
       {overlay?.kind === "details" && <Details id={overlay.id} onClose={() => setOverlay(null)} />}

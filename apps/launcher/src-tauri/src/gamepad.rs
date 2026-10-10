@@ -13,6 +13,8 @@ use tauri::{AppHandle, Emitter, Manager};
 struct Pad {
     key: String,
     down: bool,
+    /// USB vendor id, for Big Picture's button glyphs (fork): 0x054C Sony, 0x045E Microsoft.
+    vendor: Option<u16>,
 }
 
 /// Names of the connected controllers.
@@ -38,18 +40,19 @@ pub fn start(app: AppHandle) {
         };
         update(&gilrs);
         let mut held = HashSet::new();
-        let mut send = |key: String, down: bool| {
+        let mut send = |key: String, down: bool, vendor: Option<u16>| {
             // Only changes: a stick resting past the threshold isn't a new press.
             if (down && held.insert(key.clone())) || (!down && held.remove(&key)) {
-                let _ = app.emit("pad", Pad { key, down });
+                let _ = app.emit("pad", Pad { key, down, vendor });
             }
         };
         loop {
             while let Some(event) = gilrs.next_event_blocking(Some(Duration::from_millis(250))) {
+                let vendor = gilrs.connected_gamepad(event.id).and_then(|pad| pad.vendor_id());
                 match event.event {
                     EventType::Connected | EventType::Disconnected => update(&gilrs),
-                    EventType::ButtonPressed(b, _) => send(format!("{b:?}"), true),
-                    EventType::ButtonReleased(b, _) => send(format!("{b:?}"), false),
+                    EventType::ButtonPressed(b, _) => send(format!("{b:?}"), true, vendor),
+                    EventType::ButtonReleased(b, _) => send(format!("{b:?}"), false, vendor),
                     // Up is positive here, unlike the web's Gamepad API.
                     EventType::AxisChanged(axis, value, _) => {
                         let (stick, negative, positive) = match axis {
@@ -59,8 +62,8 @@ pub fn start(app: AppHandle) {
                             Axis::RightStickY => ("RightStick", "Down", "Up"),
                             _ => continue,
                         };
-                        send(format!("{stick}{negative}"), value < -0.5);
-                        send(format!("{stick}{positive}"), value > 0.5);
+                        send(format!("{stick}{negative}"), value < -0.5, vendor);
+                        send(format!("{stick}{positive}"), value > 0.5, vendor);
                     }
                     _ => {}
                 }

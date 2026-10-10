@@ -3,7 +3,7 @@
  * underneath, inert, so both share one store and switching back finds it as it
  * was (spec §11).
  */
-import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { native } from "../native";
 import { useLauncher } from "../store";
@@ -18,6 +18,7 @@ import { InputGate } from "./input/gate";
 import { InputRouter } from "./input/router";
 import { ConsoleCatalog } from "./consoles/consoles";
 import { useBridge } from "./useBridge";
+import { isInstalled, type BpState } from "./bridge";
 import { Shell } from "./views/Shell";
 import "./bigpicture.css";
 
@@ -70,6 +71,23 @@ function BigPicture({ sidecar }: { sidecar: SidecarStore }) {
   const router = useMemo(() => new InputRouter(), []);
   const gate = useMemo(() => new InputGate(new RepeatFilter((e) => router.dispatch(e))), [router]);
   const consoles = useMemo(() => new ConsoleCatalog(launcher.consoles), [launcher.consoles]);
+
+  // When a download finishes, note when: Home's "Recently installed" (upstream doesn't keep it).
+  const states = useRef(new Map<string, BpState>());
+  useEffect(() => {
+    for (const app of bridge.apps) {
+      const before = states.current.get(app.id);
+      if ((before === "downloading" || before === "updating") && isInstalled(app)) sidecar.updateApp(app.id, { installedAt: Date.now() });
+      states.current.set(app.id, app.state);
+    }
+  }, [bridge.apps, sidecar]);
+
+  const [pads, setPads] = useState<string[]>([]);
+  useEffect(() => {
+    void native.controllers().then(setPads, () => {});
+    const off = native.onControllers(setPads);
+    return () => void off.then((stop) => stop());
+  }, []);
 
   // Fullscreen while showing; back to the player's own choice after.
   const desktopFullscreen = Boolean(launcher.settings.fullscreen);
@@ -129,6 +147,11 @@ function BigPicture({ sidecar }: { sidecar: SidecarStore }) {
     bridge,
     consoles,
     scale,
+    pads,
+    play: (id) => {
+      sidecar.updateApp(id, (s) => ({ ...s, playCount: (s.playCount ?? 0) + 1 }));
+      void bridge.play(id);
+    },
     exit: () => {
       void sidecar.flush();
       closeBigPicture();

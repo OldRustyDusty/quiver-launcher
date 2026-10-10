@@ -1,73 +1,34 @@
 /**
- * A button's name in the style of whatever was pressed last: Xbox (also for
- * other pads), PlayStation, or the keyboard. Kenney's glyph art replaces the
- * lettering in S5.
+ * A button in the style of whatever was pressed last: Xbox (also for other
+ * pads), PlayStation, or the keyboard (spec §5.3). Art: Kenney's Input Prompts
+ * (CC0), in ../glyphs.
  */
 import { useSyncExternalStore, type CSSProperties } from "react";
-import { useBp } from "../context";
+import { useBp, type InputFamily } from "../context";
 import type { InputAction } from "../input/actions";
 
-type Label = { text: string; face?: string };
+const urls = import.meta.glob<string>("../glyphs/*/*.svg", { eager: true, query: "?url", import: "default" });
 
-const XBOX: Record<InputAction, Label> = {
-  accept: { text: "A", face: "#5dc21e" },
-  back: { text: "B", face: "#e53935" },
-  secondary: { text: "X", face: "#1e88e5" },
-  details: { text: "Y", face: "#f9b81c" },
-  tabPrev: { text: "LB" },
-  tabNext: { text: "RB" },
-  pagePrev: { text: "LT" },
-  pageNext: { text: "RT" },
-  search: { text: "View" },
-  menu: { text: "Menu" },
-  up: { text: "↑" },
-  down: { text: "↓" },
-  left: { text: "←" },
-  right: { text: "→" },
+const set = (family: InputFamily) => (family === "playstation" ? "playstation" : family === "keyboard" ? "keyboard" : "xbox");
+export const glyphUrl = (family: InputFamily, action: InputAction) => urls[`../glyphs/${set(family)}/${action}.svg`];
+
+const NAMES: Record<string, Partial<Record<InputAction, string>>> = {
+  xbox: { accept: "A", back: "B", secondary: "X", details: "Y", tabPrev: "LB", tabNext: "RB", pagePrev: "LT", pageNext: "RT", search: "View", menu: "Menu" },
+  playstation: { accept: "Cross", back: "Circle", secondary: "Square", details: "Triangle", tabPrev: "L1", tabNext: "R1", pagePrev: "L2", pageNext: "R2", search: "Create", menu: "Options" },
+  keyboard: { accept: "Enter", back: "Esc", secondary: "X", details: "Y", tabPrev: "Q", tabNext: "E", pagePrev: "Page Up", pageNext: "Page Down", search: "/", menu: "F10" },
 };
 
-const PLAYSTATION: Record<InputAction, Label> = {
-  ...XBOX,
-  accept: { text: "✕", face: "#7aa6e8" },
-  back: { text: "○", face: "#e8707e" },
-  secondary: { text: "□", face: "#d98fd6" },
-  details: { text: "△", face: "#4fc5a3" },
-  tabPrev: { text: "L1" },
-  tabNext: { text: "R1" },
-  pagePrev: { text: "L2" },
-  pageNext: { text: "R2" },
-  search: { text: "Create" },
-  menu: { text: "Options" },
-};
-
-const KEYBOARD: Record<InputAction, Label> = {
-  ...XBOX,
-  accept: { text: "Enter" },
-  back: { text: "Esc" },
-  secondary: { text: "X" },
-  details: { text: "Y" },
-  tabPrev: { text: "Q" },
-  tabNext: { text: "E" },
-  pagePrev: { text: "PgUp" },
-  pageNext: { text: "PgDn" },
-  search: { text: "/" },
-  menu: { text: "F10" },
-};
-
-export function Glyph({ action }: { action: InputAction }) {
+export function Glyph({ action, size }: { action: InputAction; size?: number }) {
   const { family, router } = useBp();
   useSyncExternalStore(router.subscribe, router.snapshot);
   const hold = router.holding;
-  const label = (family === "playstation" ? PLAYSTATION : family === "keyboard" ? KEYBOARD : XBOX)[action];
-  const round = label.text.length === 1 && family !== "keyboard";
   const holding = hold?.action === action;
   return (
     <span
-      className={`bp-glyph${round ? " round" : ""}${family === "keyboard" ? " key" : ""}${holding ? " holding" : ""}`}
-      style={{ "--face": label.face, "--hold": holding ? `${hold.duration}ms` : undefined } as CSSProperties}
-      aria-label={label.text}
+      className={`bp-glyph${holding ? " holding" : ""}`}
+      style={{ "--hold": holding ? `${hold.duration}ms` : undefined, "--size": size } as CSSProperties}
     >
-      {label.text}
+      <img src={glyphUrl(family, action)} alt={NAMES[set(family)][action] ?? action} draggable={false} />
     </span>
   );
 }
