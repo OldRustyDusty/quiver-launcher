@@ -61,7 +61,7 @@ function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
           installed once, and its updates and saves work in both.
         </p>
         <p className="bp-dialog-lead">
-          If this feature isn't enabled, note that Quiver 3 will not see game updates or newly installed games from Quiver Big Picture, if launched separately on its
+          If this feature isn't enabled, note that Quiver 3 will not see game updates or newly installed games from Big Quiver Launcher, if launched separately on its
           own.
         </p>
         <p className="bp-dialog-lead">
@@ -83,7 +83,7 @@ function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
           )
         )}
         {d.plan && d.plan.moves.length + d.plan.duplicates.length > 0 && (
-          <p className="bp-dialog-lead small">Moved games will keep their saves. Desktop shortcuts to them are made again; Steam shortcuts need adding again.</p>
+          <p className="bp-dialog-lead small">Moved games will keep their save files. Note that any desktop shortcuts for individual games will be regenerated, however if you're using custom Steam shortcuts those will need to be re-created manually.</p>
         )}
         {d.running && <p className="bp-error">Close Quiver Launcher 3 to continue.</p>}
         {buttons}
