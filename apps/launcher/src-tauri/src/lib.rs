@@ -544,7 +544,14 @@ pub fn run() {
             bigpicture::bp_pads_start,
             bigpicture::bp_pads_stop,
             bigpicture::bp_use_monitor,
-            bigpicture::bp_monitors
+            bigpicture::bp_monitors,
+            bigpicture::v3share::bp_v3_library,
+            bigpicture::v3share::bp_v3_write,
+            bigpicture::v3share::bp_game_dir,
+            bigpicture::v3share::bp_write_versions,
+            bigpicture::v3share::bp_trash_game,
+            bigpicture::v3share::bp_move_game,
+            bigpicture::v3share::bp_has_desktop_shortcut
         ])
         .run(tauri::generate_context!())
         .expect("error while running Quiver Launcher");

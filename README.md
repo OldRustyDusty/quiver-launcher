@@ -9,11 +9,11 @@ into a fullscreen, controller-first launcher, like Steam's Big Picture or the St
 console, find new games, download them and play, all from the couch with an Xbox or PlayStation controller.
 
 This is an unofficial fork. Everything Quiver Launcher 4 does still works in desktop mode: the catalog, the library, installs,
-updates, playlists and accounts. Big Picture is an extra fullscreen mode on top. Both modes use the same library, and so does the
-official Quiver Launcher 4 (see [Your library](#your-library)).
+updates, playlists and accounts. Big Picture is an extra fullscreen mode on top. Both modes use the same library, and so will the
+official Quiver Launcher 4 once it's released (see [Your library](#your-library)).
 
-> **Alpha.** It's built on Quiver Launcher 4, which is itself still a work in progress. Tested on Windows 11 with Xbox and
-> DualSense controllers.
+> **Alpha.** It's built on Quiver Launcher 4, which hasn't been released yet: the current official release is Quiver Launcher
+> 3.5. Tested on Windows 11 with Xbox and DualSense controllers.
 
 ## Features
 
@@ -32,6 +32,9 @@ official Quiver Launcher 4 (see [Your library](#your-library)).
 - **Search with the controller.** An on-screen keyboard filters the library as you type and searches the catalog in Discover.
 - **Gets out of the way while you play.** Quiver ignores the controller while a game is in front. When the game closes, Quiver
   comes back to the front, ready for input. This also works for games that start through a small launcher first.
+- **One games folder with Quiver 3, if you want it.** Big Quiver can install games into your Quiver 3 games folder, move the
+  ones it already installed there, and keep Quiver 3's list and version numbers up to date, so both launchers see the same
+  games. See [Use the same games folder as Quiver 3](#use-the-same-games-folder-as-quiver-3).
 - **Mouse, keyboard and controller all at once.** Use whichever is in your hand; every screen works with each of them.
 - **Fits any screen.** Scales from 720p to 4K, with a size setting on top, and can open on the monitor of your choice
   (for example the TV).
@@ -46,7 +49,8 @@ official Quiver Launcher 4 (see [Your library](#your-library)).
 
 Windows may warn you that the installer isn't from a known publisher. The builds aren't code-signed, so click **More info → Run anyway**.
 
-Big Quiver Launcher installs beside the official Quiver Launcher 4 under its own name, and you can keep both.
+Big Quiver Launcher installs under its own name, so you can keep Quiver Launcher 3 installed beside it, and the official
+Quiver Launcher 4 once it's out.
 
 ### Build from source
 
@@ -103,6 +107,7 @@ Open Settings with Menu / Options, or F10.
 |---|---|
 | Updates when playing | Ask · Don't update · Update first |
 | After getting a game | Stay in Discover (the game shows ✓ Installed there) · Go to it |
+| Use the same games folder as Quiver 3 | On · Off (shown when Quiver 3 is on this computer; On asks first, and shows what it will do) |
 | Start in Big Picture | On · Off |
 | Offer Big Picture when a controller connects | On · Off |
 | Home tab | On · Off |
@@ -116,12 +121,12 @@ Open Settings with Menu / Options, or F10.
 
 ## Your library
 
-**Big Quiver Launcher uses the same data folder as the official Quiver Launcher 4**
-(`%APPDATA%\com.quiverlauncher.app` on Windows). That's deliberate:
+**Big Quiver Launcher uses the same data folder as Quiver Launcher 4**
+(`%APPDATA%\com.quiverlauncher.app` on Windows). That's deliberate, for when the official Quiver Launcher 4 is released:
 
-- Your library, installed games and settings appear in both apps.
-- You can go back to the official app at any time, for example when it updates before this fork does, and your games are all
-  still there.
+- Your library, installed games and settings will appear in both apps.
+- You'll be able to go back to the official app at any time, for example when it updates before this fork does, with your
+  games all still there.
 - Big Picture's own settings (console overrides, skipped versions, play counts) live in a separate file,
   `bigpicture.json`, which the official app ignores. Big Quiver never changes the format of the official app's files.
 
@@ -136,13 +141,44 @@ app offers to bring your Quiver 3 library over:
   included.
 - **Games are matched to the Quiver catalog** by their GitHub or GitLab repository, so they get catalog art, consoles and updates.
   Apps that aren't in the catalog come over as custom apps. Any that can't be matched are listed for you.
-- **Quiver 3 is only read, never changed**, so it keeps working if you want to go back.
+- **The import only reads Quiver 3**, so Quiver 3 keeps working. The games themselves are shared, though: updating or
+  uninstalling an imported game in Big Quiver changes the same folder Quiver 3 uses.
 
 The import itself is upstream Quiver's. The fork adds two things:
 
 - **It finds Quiver 3 wherever you put it.** Upstream looks only in the default folders, so a portable or moved Quiver 3 (for
   example `E:\QuiverLauncher`) was never offered. Big Quiver also reads the folder from Quiver 3's own update log.
 - **You can import with the controller.** When your library is empty, Big Picture's Home shows the offer, and A imports.
+
+### Use the same games folder as Quiver 3
+
+On its own, Quiver 4 installs new games into its own folder (`%APPDATA%\com.quiverlauncher.app\apps`, on your C: drive).
+Quiver 3 doesn't know about those games, and it keeps showing old version numbers for games updated in Quiver 4. Turn this on to
+keep everything in one place instead:
+
+- **New games install into your Quiver 3 games folder** (for example `E:\QuiverLauncher\Apps`), and show up in Quiver 3 too.
+- **Games Big Quiver already installed in its own folder are moved there.** Each one is copied and checked first, and only then
+  does the old copy go to the Recycle Bin, so nothing is lost if something goes wrong part-way. A game that's running is left
+  until next time.
+- **Games you put in custom folders in Quiver 3 stay exactly where they are.**
+- **A game installed by both launchers** keeps its newer copy, and the other goes to the Recycle Bin.
+- **Games only Quiver 3 has** are added to your library where they are. Custom apps that aren't in the Quiver catalog stay in
+  Quiver 3 only; add them in desktop mode with their repository.
+- **Updates and uninstalls** in Big Quiver show up in Quiver 3 too, with the right version numbers.
+- **Games the official Quiver Launcher 4 installs** (once it's out) land in its own folder, because it doesn't know this setting.
+  Big Quiver moves them over the next time it starts.
+
+**How you're asked:** right after you import your Quiver 3 library, or (if you imported earlier) once on the first start with
+this feature, with *Yes*, *Not now* and *Don't ask again*. You can also turn it on or off any time in Big Picture's Settings.
+Before changing anything, it shows what it's going to do.
+
+**Safe for Quiver 3's library:** Big Quiver writes Quiver 3's list (`apps.json`) only while Quiver 3 is closed. If Quiver 3
+is open, it asks you to close it, or keeps the change until you do. It takes the same lock Quiver 3 uses, and saves a backup
+in Quiver 3's own `Backups\apps` folder before every change. Turning the setting off doesn't undo anything, but that first
+backup restores Quiver 3's list exactly as it was.
+
+**Shortcuts:** desktop shortcuts to moved games are made again automatically. Steam shortcuts to them stop working; add those
+games to Steam again from their page in desktop mode.
 
 ## How it works
 
@@ -160,6 +196,10 @@ an install started in one shows up in the other at once.
   ends, Quiver brings itself back to the front.
 - **Art** comes from the catalog's library art (capsule, header, hero and logo). Games without art get a generated tile.
 - Installs, updates and uninstalls all go through upstream Quiver's own code. Big Picture only decides when to call it.
+- **Sharing with Quiver 3:** with that setting on, a small hook in upstream's install code lets Big Quiver choose the folder
+  for new installs. The Rust core reads Quiver 3's `apps.json` and each game's `version.txt`, moves games (copy, check, then
+  Recycle Bin), and writes `apps.json` the way Quiver 3 does: under its lock, with a backup, atomically, keeping every field
+  it doesn't know.
 
 Fork code lives in `apps/launcher/src/bigpicture/` (TypeScript) and `apps/launcher/src-tauri/src/bigpicture/` (Rust).
 Each change to an upstream file is small and listed in [`docs/bigpicture/FORK_CHANGES.md`](docs/bigpicture/FORK_CHANGES.md),

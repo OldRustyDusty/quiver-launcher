@@ -178,10 +178,21 @@ handled upstream. "Skip this version" is stored in the sidecar, as in the spec.
 * Desktop mode shows a note when a controller is turned on (upstream's controller events). A or a click opens Big Picture.
 
 
-## 12. One games folder, shared with Quiver 3.5 (planned 2026-10-10, not built)
+## 12. One games folder, shared with Quiver 3.5 (planned and built 2026-10-10)
 
-**Status: planned only.** The user approved the design, and asked for the plan before any build. It needs a separate go-ahead
-to build. Until then nothing below exists.
+**Status: built** (2026-10-10, at the user's go-ahead). The code is `src/bigpicture/share/` (plan, controller, dialog) and
+`src-tauri/src/bigpicture/v3share.rs`. It was checked in the browser preview (`?share`) and by unit tests, including a round trip
+on a copy of the user's real `apps.json`. It hasn't run on real game files yet. Where the build differs from the plan below:
+
+* **Custom apps only Quiver 3 has aren't brought over.** Upstream adds a custom app only by installing it, which would download a
+  game that's already there. They're listed, with a pointer to desktop mode's Add a game.
+* **Backups:** each write first saves `apps.json` into Quiver 3's own `Backups/apps` (SHA-256 names, as Quiver 3 names them).
+  The first backup's path is kept in `bigpicture.json` (`v3Share.backup`).
+* **Steam shortcuts** aren't detected. The result lists moved games and says to add them to Steam again. Desktop shortcuts with
+  the game's name are made again.
+* **A running game isn't moved** (its files are locked; the copy would leave two). It's moved on a later start.
+* **Key order:** `apps.json` is re-serialized with keys sorted (serde_json without `preserve_order`). Quiver 3 reads fields by
+  name, so the order doesn't matter to it.
 
 **Why.** Official Quiver 4.0 isn't released (upstream's latest is 3.5.0), so Big Quiver users come straight from 3.5. Upstream's
 import leaves imported games in 3.5's folder and puts new ones in `%APPDATA%\com.quiverlauncher.app\apps`. So games end up in

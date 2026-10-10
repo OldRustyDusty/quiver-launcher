@@ -8,7 +8,8 @@
  *   update, some not yet installed; it's kept in localStorage (?reset starts again).
  * - ?desktop starts in desktop mode instead of Big Picture; ?debug shows the input overlay;
  *   ?failLaunch makes every launch fail (error notices); ?empty&reset starts with an empty library,
- *   and &v3 adds a Quiver 3 library to bring over.
+ *   and &v3 adds a Quiver 3 library to bring over. ?share adds a Quiver 3 library for "Use the same
+ *   games folder as Quiver 3" (?share=open: Quiver 3 is open for its first ten seconds).
  * - Controllers: bpPad("South") in the console presses and releases a control
  *   (gilrs names); bpPad("DPadRight", true) holds it, bpPad("DPadRight", false)
  *   lets go. The last argument is the pad's family ("playstation" for its glyphs).
@@ -75,6 +76,30 @@ async function fakeInstall(request: { id: string; folder: string; version: strin
   return { dir: `C:/QuiverApps/${request.folder}`, version: request.version };
 }
 
+/** ?share: a Quiver 3 library beside the preview's, with one game in both and one only in Quiver 3. */
+const sharedSince = Date.now();
+function v3Library() {
+  const catalog = (load("catalog") ?? {}) as Record<string, Entry & { name?: string }>;
+  const installs = (load("installs") ?? {}) as Record<string, { version: string; folder: string }>;
+  const [twice] = Object.keys(installs);
+  const gamesDir = "E:\\QuiverLauncher\\Apps";
+  const entries = [
+    ...(twice ? [{ name: catalog[twice]?.name ?? twice, folderName: installs[twice].folder, repository: null, provider: "github", catalogEntryId: twice, dir: `${gamesDir}\\${installs[twice].folder}`, version: "v0.0.1" }] : []),
+    { name: "Homebrew", folderName: "Homebrew", repository: "someone/homebrew", provider: "github", catalogEntryId: null, dir: `${gamesDir}\\Homebrew`, version: "v1" },
+    { name: "Manual", folderName: "Manual", repository: null, provider: "github", catalogEntryId: null, dir: `${gamesDir}\\Manual`, version: null },
+  ];
+  return { root: "E:\\QuiverLauncher", gamesDir, running: params.get("share") === "open" && Date.now() - sharedSince < 10_000, entries };
+}
+
+async function fakeMove(id: string) {
+  const total = 2_000_000_000;
+  for (let done = 0; done <= total; done += total / 8) {
+    await emit("bp-move-progress", { id, done, total });
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return { trashed: true };
+}
+
 mockIPC(
   async (cmd, args) => {
     const a = (args ?? {}) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -132,6 +157,19 @@ mockIPC(
       case "bp_pads_start":
         setTimeout(() => void emit("bp-pads", ["Preview controller"]), 50);
         return null;
+      case "bp_v3_library":
+        return params.has("share") ? v3Library() : null;
+      case "bp_game_dir":
+        // Quiver 4's own folder holds its installs; Quiver 3's has room.
+        return [`${a.gamesDir}\\${a.folder}`, String(a.gamesDir).startsWith("C:/QuiverApps") ? "ours" : "free"];
+      case "bp_move_game":
+        return fakeMove(a.id);
+      case "bp_v3_write":
+        console.info("[preview] Quiver 3's apps.json changes", a.changes);
+        save("v3changes", [...((load("v3changes") as unknown[]) ?? []), ...a.changes]);
+        return "E:\\QuiverLauncher\\Backups\\apps\\PREVIEW.json";
+      case "bp_has_desktop_shortcut":
+        return false;
       default:
         return null;
     }

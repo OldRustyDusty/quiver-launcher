@@ -1580,3 +1580,42 @@
     transform: translateY(16px);
   }
 }
+
+/* ── "Use the same games folder as Quiver 3" (share/) ─── */
+.bp-share .bp-dialog-body {
+  padding-top: calc(var(--u) * 24);
+}
+.bp-share-path {
+  color: var(--bp-fg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.bp-share .bp-dialog-lead svg {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+}
+/* In desktop mode the dialog sits outside Big Picture's root: the same look, at desktop size. */
+.bp-share-desktop {
+  --u: 1.1px;
+  --bp-accent: #38bdf8;
+  --bp-accent-soft: #38bdf833;
+  --bp-accent-glow: #38bdf870;
+  --bp-fg: #f1f5f9;
+  --bp-muted: #8b97a8;
+  --bp-dim: #5c6879;
+  --bp-line: #ffffff14;
+  --bp-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  color: var(--bp-fg);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+.bp-share-desktop .bp-dialog-backdrop {
+  padding-bottom: 0;
+}
+.bp-share-desktop .bp-dialog-buttons button {
+  cursor: pointer;
+}

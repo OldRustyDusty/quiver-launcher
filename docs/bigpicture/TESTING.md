@@ -9,7 +9,7 @@
 | Import a Quiver 3 library from elsewhere | `$env:QUIVER_V3_DATA="E:\QuiverLauncher"` before the first start of v4 |
 | Input overlay | `$env:QUIVER_BP_DEBUG="1"` shows controller events and whether they get through |
 | DevTools probe | `$env:QUIVER_DEBUG_PORT="9222"` (debug builds) opens WebView2's remote debugging port |
-| Browser preview, no Tauri | `pnpm --filter @quiver/launcher dev`, then open `http://localhost:1420/bigpicture-preview.html`. `?reset`, `?apps=250`, `?desktop`, `?debug`, `?failLaunch`; `bpPad("South")` in the console presses a control |
+| Browser preview, no Tauri | `pnpm --filter @quiver/launcher dev`, then open `http://localhost:1420/bigpicture-preview.html`. `?reset`, `?apps=250`, `?desktop`, `?debug`, `?failLaunch`, `?share` (a Quiver 3 library for "Use the same games folder as Quiver 3"; `?share=open` keeps Quiver 3 open for 10 s); `bpPad("South")` in the console presses a control |
 | Release exe | `pnpm --filter @quiver/launcher tauri build --no-bundle` → `apps/launcher/src-tauri/target/release/quiver-launcher.exe` |
 | Automated checks | `pnpm typecheck`, `pnpm test` (Big Picture tests are in `src/bigpicture/**/*.test.ts`), `cargo test --manifest-path apps/launcher/src-tauri/Cargo.toml` |
 
@@ -30,3 +30,4 @@
 | 200+ tiles: no hitching holding Right/Down | ✅ script work per step ~6 ms (worst 12 ms) over 250 tiles; frame timing at full size in the real app still to watch |
 | Keyboard-only full pass | ✅ every screen in the preview by keyboard (and mouse) |
 | Scale at 720p / 1080p / 4K | ✅ in the preview (scale 1 / 1.5 / 3, no overflow) |
+| Use the same games folder as Quiver 3: prompt, preview, catch-up, then a new install, an uninstall | ✅ in the preview (Big Picture and desktop mode); Rust unit tests for moves, `apps.json` changes, backups, and a round trip on a copy of the user's real `apps.json`. Not yet run on real game files |

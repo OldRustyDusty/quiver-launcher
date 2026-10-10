@@ -140,7 +140,7 @@ function Unassigned({ onClose }: { onClose: () => void }) {
 }
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { sidecar, data, exit, bridge } = useBp();
+  const { sidecar, data, exit, bridge, share } = useBp();
   const s = data.settings;
   const [screen, setScreen] = useState<"main" | "unassigned">("main");
   const [monitors, setMonitors] = useState<string[]>([]);
@@ -172,6 +172,19 @@ export function Settings({ onClose }: { onClose: () => void }) {
       value: s.afterGet,
       set: set("afterGet"),
     },
+    ...(share.available
+      ? [
+          {
+            kind: "choice",
+            label: "Use the same games folder as Quiver 3",
+            detail: `Games install to ${share.gamesDir} and show up in Quiver 3 too`,
+            options: onOff,
+            value: share.on,
+            // On asks first, with what it would do; Off just stops.
+            set: (value: unknown) => (value ? share.ask() : share.turnOff()),
+          } satisfies Row,
+        ]
+      : []),
     { kind: "choice", label: "Start in Big Picture", detail: "Quiver opens straight into Big Picture", options: onOff, value: s.startInBigPicture, set: set("startInBigPicture") },
     {
       kind: "choice",

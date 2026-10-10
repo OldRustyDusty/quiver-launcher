@@ -43,7 +43,7 @@ pub fn track(app: &AppHandle, mut child: Child, dir: PathBuf) {
 
 /// Whether any process is running a program from inside `dir`. Processes whose
 /// path can't be read (access denied) don't count.
-fn running_from(system: &mut System, dir: &Path) -> bool {
+pub(crate) fn running_from(system: &mut System, dir: &Path) -> bool {
     system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet));
     system.processes().values().any(|p| p.exe().is_some_and(|exe| inside(exe, dir)))
 }

@@ -9,6 +9,7 @@ use super::Data;
 mod pads;
 pub mod session;
 pub mod v3;
+pub mod v3share;
 
 /// Big Picture's own settings and per-app state, beside upstream's JSON files,
 /// which it never writes itself.

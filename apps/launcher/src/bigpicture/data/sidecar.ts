@@ -42,10 +42,22 @@ export type BpAppState = {
   art?: BpArt;
 };
 
+/** "Use the same games folder as Quiver 3" (share/, PLAN-v4.md §12). */
+export type V3ShareState = {
+  on: boolean;
+  /** The one-time question for people who imported earlier: don't ask again. */
+  dontAsk?: boolean;
+  /** Changes to Quiver 3's apps.json waiting for it to close. */
+  pending?: unknown[];
+  /** Quiver 3's library as it was when this was turned on (in its own Backups folder). */
+  backup?: string;
+};
+
 export type BpSidecar = {
   version: number;
   settings: BpSettings;
   apps: Record<string, BpAppState>;
+  v3Share?: V3ShareState;
 };
 
 export const SIDECAR_VERSION = 1;
@@ -100,6 +112,15 @@ export function normalize(raw: unknown): BpSidecar {
     version: typeof r.version === "number" ? r.version : SIDECAR_VERSION,
     settings: settingsFrom(r.settings),
     apps,
+    ...(isObject(r.v3Share)
+      ? {
+          v3Share: {
+            ...r.v3Share,
+            on: bool(r.v3Share.on, false),
+            pending: Array.isArray(r.v3Share.pending) ? r.v3Share.pending : [],
+          } as V3ShareState,
+        }
+      : {}),
   };
 }
 
@@ -143,6 +164,10 @@ export class SidecarStore {
 
   setSettings(patch: Partial<BpSettings>) {
     this.change({ ...this.data, settings: settingsFrom({ ...this.data.settings, ...patch }) });
+  }
+
+  setV3Share(patch: Partial<V3ShareState>) {
+    this.change({ ...this.data, v3Share: { on: false, ...this.data.v3Share, ...patch } });
   }
 
   updateApp(id: string, patch: Partial<BpAppState> | ((app: BpAppState) => BpAppState)) {

@@ -1,6 +1,7 @@
 /** What every Big Picture view shares while it's open. */
 import { createContext, useContext, useEffect, useRef } from "react";
 import type { Bridge } from "./useBridge";
+import type { Share } from "./share/useShare";
 import type { BpSidecar, SidecarStore } from "./data/sidecar";
 import type { ConsoleCatalog } from "./consoles/consoles";
 import type { ControllerFamily, InputAction } from "./input/actions";
@@ -25,6 +26,8 @@ export type Bp = {
   pads: string[];
   /** The mouse is in use: tiles focus on hover and the cursor shows. */
   pointer: boolean;
+  /** "Use the same games folder as Quiver 3" (share/). */
+  share: Share;
   /** Presses and lets go of an action, as clicking a hint or a tab arrow does. */
   tap(action: InputAction): void;
   /** Back to desktop mode. */

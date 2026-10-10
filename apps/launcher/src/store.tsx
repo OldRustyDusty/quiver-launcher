@@ -86,6 +86,8 @@ type Launcher = {
   /** Apps in a Quiver Launcher 3 library on this computer, until they're brought over. */
   oldApps: OldApp[];
   importOld: () => Promise<string[]>;
+  /** Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): records where an install is, such as after it's moved, or one found in Quiver 3. */
+  adopt: (id: string, install: Install) => void;
   remember: (entries: Entry[]) => void;
   /** Keeps catalog data for apps that aren't in the library, such as those on a copy of a shared playlist. */
   cache: (entries: Entry[]) => void;
@@ -130,6 +132,10 @@ type Launcher = {
 const LauncherContext = createContext<Launcher | null>(null);
 
 export const useLauncher = () => useContext(LauncherContext)!;
+
+/** Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): where a new install goes instead of the apps folder (Quiver 3's games folder); undefined keeps the apps folder. */
+let newInstallDir: ((entry: Entry, folder: string) => Promise<string | undefined>) | null = null;
+export const setNewInstallDir = (choose: typeof newInstallDir) => void (newInstallDir = choose);
 
 /** The release a player gets: the newest that isn't a pre-release, else the newest. */
 const latestOf = (releases: Release[]) => releases.find((r) => !r.prerelease) ?? releases[0];
@@ -442,13 +448,14 @@ function LauncherState({ saved, children }: { saved: Saved; children: ReactNode 
       // One folder, one app: uninstalling either would take the other's files.
       const shared = Object.entries(installs).some(([id, i]) => id !== entry.id && !i.dir && i.folder.toLowerCase() === folder.toLowerCase());
       if (shared) throw new Error(`Another app in your library is in the folder ${folder}, so this one can't go there.`);
+      const dir = installs[entry.id] ? installs[entry.id].dir : await newInstallDir?.(entry, folder);
       await native.install({
         id: entry.id,
         url: asset.url,
         filename: asset.filename,
         checksum: asset.checksum,
         folder,
-        dir: installs[entry.id]?.dir,
+        dir,
         filesToAdd: settings.filesToAdd ?? [],
         version: release.version,
       });
@@ -460,7 +467,7 @@ function LauncherState({ saved, children }: { saved: Saved; children: ReactNode 
       const skip = chosen && verified && release.releasedAt < verified.releasedAt ? verified.version : undefined;
       setInstalls((i) => {
         const updates = pin ? "pinned" : i[entry.id]?.updates;
-        return { ...i, [entry.id]: { dir: i[entry.id]?.dir, lastPlayed: i[entry.id]?.lastPlayed, ...(updates ? { updates } : {}), ...(skip ? { skip } : {}), ...(unverified ? { unverified: true } : {}), ...(blocked ? { blocked } : {}), ...(asset.checksum ? { checksum: asset.checksum } : {}), version: release.version, releasedAt: release.releasedAt, releaseId: release.id, folder, executables, ...(asset.os === "windows" && config.os === "linux" ? { wine: true } : {}) } };
+        return { ...i, [entry.id]: { dir: i[entry.id]?.dir ?? dir, lastPlayed: i[entry.id]?.lastPlayed, ...(updates ? { updates } : {}), ...(skip ? { skip } : {}), ...(unverified ? { unverified: true } : {}), ...(blocked ? { blocked } : {}), ...(asset.checksum ? { checksum: asset.checksum } : {}), version: release.version, releasedAt: release.releasedAt, releaseId: release.id, folder, executables, ...(asset.os === "windows" && config.os === "linux" ? { wine: true } : {}) } };
       });
       setJobs(({ [entry.id]: _, ...rest }) => rest);
       if (from) track("app_updated", { ...ref, from, to: release.version, auto: !chosen && installs[entry.id]?.updates === "auto", verified: !unverified, blocked: Boolean(blocked) });
@@ -639,6 +646,7 @@ function LauncherState({ saved, children }: { saved: Saved; children: ReactNode 
     },
     oldApps,
     /** Adds the 3.x apps the catalog lists, keeping their installs; returns the names it couldn't match. */
+    adopt: (id, install) => setInstalls((i) => ({ ...i, [id]: install })),
     async importOld() {
       const ids = await catalogRepositories();
       const missing: string[] = [];
