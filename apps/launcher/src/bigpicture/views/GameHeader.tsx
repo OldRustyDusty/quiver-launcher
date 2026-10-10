@@ -53,7 +53,7 @@ export function GameChips({ app, consoleName }: { app: BpApp; consoleName: strin
       {app.state === "error" && (
         <span className="bp-chip danger">
           <AlertTriangle aria-hidden="true" />
-          Download failed
+          {app.installedVersion ? "Didn't start" : "Download failed"}
         </span>
       )}
       {app.lastPlayed ? (

@@ -6,7 +6,8 @@
  *
  * - The library is the catalog's first apps, most installed, some with an
  *   update, some not yet installed; it's kept in localStorage (?reset starts again).
- * - ?desktop starts in desktop mode instead of Big Picture; ?debug shows the input overlay.
+ * - ?desktop starts in desktop mode instead of Big Picture; ?debug shows the input overlay;
+ *   ?failLaunch makes every launch fail (error notices).
  * - Controllers: bpPad("South") in the console presses and releases a control
  *   (gilrs names); bpPad("DPadRight", true) holds it, bpPad("DPadRight", false)
  *   lets go. The last argument is the pad's family ("playstation" for its glyphs).
@@ -100,6 +101,8 @@ mockIPC(
       case "install":
         return fakeInstall(a.request);
       case "launch":
+        // ?failLaunch: a game whose program is missing, as the real launcher says it.
+        if (params.has("failLaunch")) throw "Couldn't find a program to start in this app's folder.";
         // A game that runs for three seconds.
         console.info("[preview] launch", a);
         void emit("bp-game-started", 1);

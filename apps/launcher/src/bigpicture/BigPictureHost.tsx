@@ -24,6 +24,7 @@ import { withArtOverrides } from "./art/art";
 import { Shell } from "./views/Shell";
 import { usePlayFlow } from "./updates/PlayFlow";
 import { AssetPicker } from "./updates/AssetPicker";
+import { Notices } from "./views/Notices";
 import { ControllerToast } from "./ControllerToast";
 import "./bigpicture.css";
 
@@ -255,6 +256,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
         <Shell />
         {flow.ui}
         <AssetPicker />
+        <Notices />
         {debug && (
           <aside className="bp-debug">
             <strong>
