@@ -41,7 +41,7 @@
   cursor: default;
 }
 
-.bp-root > :not(.bp-backdrop, .bp-overlay) {
+.bp-root > :not(.bp-backdrop, .bp-overlay, .bp-dialog-backdrop, .bp-debug) {
   position: relative;
   z-index: 1;
 }
@@ -722,6 +722,147 @@
   font-size: calc(var(--u) * 15);
 }
 
+/* ── Dialogs: the update prompt and its progress ─── */
+.bp-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: grid;
+  place-items: center;
+  padding-bottom: calc(var(--u) * 54);
+  background: #05070bcc;
+  backdrop-filter: blur(calc(var(--u) * 8));
+  animation: bp-fade 160ms ease;
+}
+.bp-dialog {
+  width: min(calc(var(--u) * 640), 92vw);
+  overflow: hidden;
+  border: 1px solid #ffffff1f;
+  border-radius: calc(var(--u) * 14);
+  background: linear-gradient(180deg, #1a2232f5, #0f141df5);
+  box-shadow: 0 calc(var(--u) * 30) calc(var(--u) * 80) #000c;
+  animation: bp-pop 220ms var(--bp-ease);
+}
+.bp-dialog-banner {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: calc(var(--u) * 150);
+  padding: calc(var(--u) * 18) calc(var(--u) * 26);
+  overflow: hidden;
+}
+.bp-dialog-banner img:first-child {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent);
+  mask-image: linear-gradient(180deg, #000 40%, transparent);
+}
+.bp-dialog-banner .bp-logo,
+.bp-dialog-banner .bp-title {
+  position: relative;
+  max-height: calc(var(--u) * 64);
+}
+.bp-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 12);
+  padding: calc(var(--u) * 6) calc(var(--u) * 26) calc(var(--u) * 24);
+}
+.bp-dialog h2 {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 10);
+  margin: 0;
+  font-size: calc(var(--u) * 22);
+  font-weight: 800;
+}
+.bp-dialog h2 svg {
+  width: calc(var(--u) * 24);
+  height: calc(var(--u) * 24);
+  color: var(--bp-accent);
+}
+.bp-dialog h2.danger svg {
+  color: #e38c87;
+}
+.bp-dialog-delta {
+  margin: 0;
+  color: #e0f2fe;
+  font-size: calc(var(--u) * 17);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.bp-dialog-delta span {
+  margin: 0 calc(var(--u) * 6);
+  color: var(--bp-accent);
+}
+.bp-dialog-notes {
+  max-height: calc(var(--u) * 140);
+  margin: 0;
+  padding: calc(var(--u) * 10) calc(var(--u) * 14) calc(var(--u) * 10) calc(var(--u) * 30);
+  overflow: hidden;
+  border-radius: calc(var(--u) * 8);
+  background: #ffffff0d;
+  color: #cbd5e1;
+  font-size: calc(var(--u) * 13.5);
+  line-height: 1.5;
+}
+.bp-dialog-lead {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: calc(var(--u) * 15);
+}
+.bp-dialog-lead.small {
+  color: var(--bp-muted);
+  font-size: calc(var(--u) * 13);
+}
+.bp-dialog-progress {
+  height: calc(var(--u) * 8);
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ffffff14;
+}
+.bp-dialog-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0ea5e9, #7dd3fc);
+  box-shadow: 0 0 calc(var(--u) * 10) var(--bp-accent-glow);
+  transition: width 250ms linear;
+}
+.bp-dialog-progress.indeterminate i {
+  animation: bp-slide 1.2s ease-in-out infinite;
+}
+.bp-dialog-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 10);
+  margin-top: calc(var(--u) * 6);
+}
+.bp-dialog-buttons button {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 8);
+  padding: calc(var(--u) * 8) calc(var(--u) * 14) calc(var(--u) * 8) calc(var(--u) * 8);
+  border: 1px solid #ffffff1f;
+  border-radius: 999px;
+  background: #ffffff0f;
+  color: #e2e8f0;
+  font: inherit;
+  font-size: calc(var(--u) * 14);
+  font-weight: 700;
+}
+.bp-dialog-buttons button.primary {
+  border-color: transparent;
+  background: #fff;
+  color: #0b1018;
+}
+.bp-root.bp-pointer .bp-dialog-buttons button {
+  cursor: pointer;
+}
+
 /* The mouse: the cursor shows only while it's in use; tiles, tabs and hints are clickable. */
 .bp-root:not(.bp-pointer),
 .bp-root:not(.bp-pointer) * {
@@ -797,6 +938,12 @@
 @keyframes bp-sheen {
   to {
     transform: translateX(120%);
+  }
+}
+@keyframes bp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(calc(var(--u) * 8));
   }
 }
 @keyframes bp-fade {

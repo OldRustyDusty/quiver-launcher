@@ -102,7 +102,8 @@ export function libraryApps(input: BridgeInput): BpApp[] {
 export const isInstalled = (app: BpApp) =>
   app.state === "installed" || app.state === "updateAvailable" || app.state === "updating" || (app.state === "error" && Boolean(app.installedVersion));
 
-type Task = { id: string; run: () => Promise<void>; done: () => void };
+/** `done` holds everyone waiting on this install: who asked first, and anyone who asked again meanwhile. */
+type Task = { id: string; run: () => Promise<void>; done: (() => void)[] };
 
 /** Installs one app at a time, in the order asked. */
 export class InstallQueue {
@@ -111,11 +112,15 @@ export class InstallQueue {
   private readonly listeners = new Set<() => void>();
   private ids: ReadonlySet<string> = new Set();
 
-  /** Resolves once the app's install has finished (or failed, or was taken out of the queue). Asking again for one already waiting or running does nothing more. */
+  /**
+   * Resolves once the app's install has finished (or failed, or was taken out of the queue).
+   * Asking again for one already waiting or installing doesn't install it twice: it waits for that one.
+   */
   enqueue(id: string, run: () => Promise<void>): Promise<void> {
-    if (this.current?.id === id || this.waiting.some((t) => t.id === id)) return Promise.resolve();
+    const existing = this.current?.id === id ? this.current : this.waiting.find((t) => t.id === id);
+    if (existing) return new Promise<void>((done) => existing.done.push(done));
     return new Promise<void>((done) => {
-      this.waiting.push({ id, run, done });
+      this.waiting.push({ id, run, done: [done] });
       this.changed();
       this.next();
     });
@@ -126,7 +131,7 @@ export class InstallQueue {
     const task = this.waiting.find((t) => t.id === id);
     if (!task) return false;
     this.waiting = this.waiting.filter((t) => t !== task);
-    task.done();
+    task.done.forEach((done) => done());
     this.changed();
     return true;
   }
@@ -156,7 +161,7 @@ export class InstallQueue {
       .catch(() => {})
       .finally(() => {
         this.current = null;
-        task.done();
+        task.done.forEach((done) => done());
         this.changed();
         this.next();
       });

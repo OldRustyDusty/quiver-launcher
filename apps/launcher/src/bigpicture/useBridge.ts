@@ -45,6 +45,17 @@ export function useBridge() {
         const entry = latest.current.catalog[id];
         if (entry) await latest.current.get(entry);
       }),
+    /** Updates and waits for it; resolves to why it failed, or null when it worked. */
+    updateAndWait: async (id: string): Promise<string | null> => {
+      await queue.enqueue(id, async () => {
+        await settle();
+        const entry = latest.current.catalog[id];
+        if (entry) await latest.current.get(entry);
+      });
+      await settle();
+      const job = latest.current.jobs[id];
+      return job && "error" in job ? job.error : null;
+    },
     cancelQueued: (id: string) => queue.cancel(id),
     /** Uninstalls and removes from the library, as upstream's Remove does. */
     uninstall: (id: string) => launcher.remove(id),

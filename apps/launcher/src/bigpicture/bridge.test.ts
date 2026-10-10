@@ -151,13 +151,17 @@ describe("InstallQueue", () => {
     await ranB.promise;
   });
 
-  it("ignores asking again for an app already waiting or installing", async () => {
+  it("installs once when asked again, and the second ask waits for that install to finish", async () => {
     const q = new InstallQueue();
     const a = deferred();
     let runs = 0;
+    let secondDone = false;
     void q.enqueue("a", () => (runs++, a.promise));
-    await q.enqueue("a", async () => void runs++);
+    const second = q.enqueue("a", async () => void runs++).then(() => void (secondDone = true));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(secondDone).toBe(false);
     a.resolve();
+    await second;
     expect(runs).toBe(1);
   });
 

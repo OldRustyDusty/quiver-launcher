@@ -21,6 +21,7 @@ import { ConsoleCatalog } from "./consoles/consoles";
 import { useBridge } from "./useBridge";
 import { isInstalled, type BpState } from "./bridge";
 import { Shell } from "./views/Shell";
+import { usePlayFlow } from "./updates/PlayFlow";
 import "./bigpicture.css";
 
 const io = { read: bpNative.readSidecar, write: bpNative.writeSidecar };
@@ -171,6 +172,13 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
     };
   }, [gate, debug]);
 
+  /** Starts the game (no more questions) and counts the play. */
+  const launch = (id: string) => {
+    sidecar.updateApp(id, (s) => ({ ...s, playCount: (s.playCount ?? 0) + 1 }));
+    void bridge.play(id);
+  };
+  const flow = usePlayFlow({ bridge, sidecar, data, launch });
+
   const value: Bp = {
     sidecar,
     data,
@@ -185,10 +193,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
       router.dispatch({ action, phase: "press" });
       router.dispatch({ action, phase: "release" });
     },
-    play: (id) => {
-      sidecar.updateApp(id, (s) => ({ ...s, playCount: (s.playCount ?? 0) + 1 }));
-      void bridge.play(id);
-    },
+    play: flow.play,
     exit: () => {
       void sidecar.flush();
       closeBigPicture();
@@ -204,6 +209,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
         aria-label="Quiver Launcher Big Picture"
       >
         <Shell />
+        {flow.ui}
         {debug && (
           <aside className="bp-debug">
             <strong>

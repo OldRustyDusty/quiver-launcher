@@ -2,10 +2,21 @@
 import { useState } from "react";
 import { useBp, useInputHandler } from "../context";
 import { LAYER } from "../input/router";
+import type { UpdateBehavior } from "../data/sidecar";
+
+const UPDATE_LABELS: Record<UpdateBehavior, string> = { ask: "Ask", off: "Don't update", auto: "Update first" };
 
 export function Menu({ onClose }: { onClose: () => void }) {
-  const { exit } = useBp();
-  const items = [{ label: "Switch to desktop mode", run: exit }];
+  const { exit, sidecar, data } = useBp();
+  const behavior = data.settings.updateBehavior;
+  const items = [
+    {
+      // Ask → Off → Auto (the full settings screen comes in S11).
+      label: `Updates when playing: ${UPDATE_LABELS[behavior]}`,
+      run: () => sidecar.setSettings({ updateBehavior: behavior === "ask" ? "off" : behavior === "off" ? "auto" : "ask" }),
+    },
+    { label: "Switch to desktop mode", run: exit },
+  ];
   const [index, setIndex] = useState(0);
   useInputHandler(
     {

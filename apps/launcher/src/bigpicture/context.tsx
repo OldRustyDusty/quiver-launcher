@@ -19,7 +19,7 @@ export type Bp = {
   consoles: ConsoleCatalog;
   /** 1 at 720p, times the player's UI scale. */
   scale: number;
-  /** Starts a game and counts the play. */
+  /** Play: through the update policy (it may ask, or update first), then starts the game and counts the play. */
   play(id: string): void;
   /** Controllers connected now, by name. */
   pads: string[];
