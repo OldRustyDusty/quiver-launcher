@@ -23,6 +23,15 @@ type Props = {
   back?: Back;
   onDetails: (app: BpApp) => void;
   onDownloads: () => void;
+  /** False while something above the grid has the input (Discover's filter row). */
+  active?: boolean;
+  /** Pressing past the grid's edge (Up from the top row goes to Discover's filters). */
+  onEdge?: (action: InputAction) => void;
+  /** Focus is within two rows of the end: time to load more. */
+  onNearEnd?: () => void;
+  /** The mouse went to a tile while something above had the input: the grid takes it. */
+  onPointerFocus?: () => void;
+  empty?: { title: string; text: string };
 };
 
 /** Sizes at 720p, times the scale. */
@@ -56,7 +65,7 @@ const tileIndex = (target: EventTarget) => {
   return index == null ? null : Number(index);
 };
 
-export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetails, onDownloads }: Props) {
+export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetails, onDownloads, active = true, onEdge, onNearEnd, onPointerFocus, empty }: Props) {
   const { scale, data, pointer } = useBp();
   const actions = useTileActions(onDownloads);
   const scroller = useRef<HTMLDivElement>(null);
@@ -113,6 +122,7 @@ export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetail
         case "right": {
           const moved = nav.move(action);
           if (moved.moved) focusAt(moved.index);
+          else onEdge?.(action);
           return;
         }
         case "accept":
@@ -132,7 +142,12 @@ export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetail
     holdFor: (action) => (action === "secondary" ? actions.holdFor(app) : undefined),
     onHold: (action) => action === "secondary" && actions.cancel(app),
     hints: () => tileHints(app, back),
-  });
+  }, undefined, active);
+
+  // More to load when focus nears the end.
+  useEffect(() => {
+    if (onNearEnd && apps.length && Math.floor(index / m.columns) >= Math.floor((apps.length - 1) / m.columns) - 2) onNearEnd();
+  }, [index, apps.length, m.columns, onNearEnd]);
 
   const tiles: ReactNode[] = [];
   for (let r = firstRow; r <= lastRow; r++) {
@@ -144,7 +159,7 @@ export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetail
         <GameTile
           key={a.id}
           app={a}
-          focused={i === index}
+          focused={active && i === index}
           x={m.padX + c * (m.tileW + m.gap)}
           y={m.padY + r * m.rowH}
           w={m.tileW}
@@ -163,12 +178,16 @@ export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetail
       // The mouse: pointing at a tile focuses it, a click does what A does, a right click opens its details.
       onMouseMove={(e) => {
         const i = tileIndex(e.target);
-        if (pointer && i !== null && i !== index) focusAt(i);
+        if (pointer && i !== null && (i !== index || !active)) {
+          focusAt(i);
+          if (!active) onPointerFocus?.();
+        }
       }}
       onClick={(e) => {
         const i = tileIndex(e.target);
         if (i === null) return;
         focusAt(i);
+        if (!active) onPointerFocus?.();
         actions.primary(apps[i]);
       }}
       onContextMenu={(e) => {
@@ -183,8 +202,8 @@ export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetail
         </div>
       ) : (
         <div className="bp-empty">
-          <h2>No games here yet</h2>
-          <p>Find something to play in Discover.</p>
+          <h2>{empty?.title ?? "No games here yet"}</h2>
+          <p>{empty?.text ?? "Find something to play in Discover."}</p>
         </div>
       )}
     </div>

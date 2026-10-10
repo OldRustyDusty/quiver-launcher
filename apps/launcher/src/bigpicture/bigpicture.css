@@ -722,6 +722,199 @@
   font-size: calc(var(--u) * 15);
 }
 
+/* ── Discover ──────────────────────────────────────── */
+.bp-discover {
+  display: grid;
+  grid-template-rows: calc(var(--u) * 112) calc(var(--u) * 50) minmax(0, 1fr);
+  height: 100%;
+}
+.bp-chip-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 8);
+  padding: 0 calc(var(--u) * 48);
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0.75;
+  transition: opacity 160ms ease;
+}
+.bp-chip-row.active {
+  opacity: 1;
+}
+.bp-filter {
+  flex: none;
+  padding: calc(var(--u) * 6) calc(var(--u) * 14);
+  border: 1px solid #ffffff1c;
+  border-radius: 999px;
+  background: #ffffff0d;
+  color: #cbd5e1;
+  font: inherit;
+  font-size: calc(var(--u) * 13);
+  font-weight: 600;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+.bp-filter.split {
+  margin-left: calc(var(--u) * 12);
+}
+.bp-filter.chosen {
+  border-color: transparent;
+  background: var(--bp-accent-soft);
+  color: #e0f2fe;
+}
+.bp-filter.focused {
+  background: #fff;
+  color: #0b1018;
+  box-shadow: 0 0 calc(var(--u) * 16) var(--bp-accent-glow);
+}
+.bp-root.bp-pointer .bp-filter {
+  cursor: pointer;
+}
+
+/* ── Downloads ─────────────────────────────────────── */
+.bp-downloads {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 8);
+  height: 100%;
+  padding: calc(var(--u) * 24) calc(var(--u) * 120);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bp-dl-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--u) * 16);
+  padding: calc(var(--u) * 10) calc(var(--u) * 16);
+  border: 1px solid #ffffff12;
+  border-radius: calc(var(--u) * 10);
+  background: #ffffff0a;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+.bp-dl-row.focused {
+  background: #ffffff1a;
+  box-shadow:
+    0 0 0 calc(var(--u) * 2) #fff,
+    0 0 calc(var(--u) * 22) var(--bp-accent-glow);
+}
+.bp-root.bp-pointer .bp-dl-row {
+  cursor: pointer;
+}
+.bp-dl-art {
+  flex: none;
+  width: calc(var(--u) * 44);
+  height: calc(var(--u) * 66);
+  border-radius: calc(var(--u) * 5);
+  background: #1a2130;
+  object-fit: cover;
+}
+.bp-dl-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(var(--u) * 44);
+  height: calc(var(--u) * 44);
+  color: var(--bp-accent);
+}
+.bp-dl-icon svg {
+  width: calc(var(--u) * 28);
+  height: calc(var(--u) * 28);
+}
+.bp-dl-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(var(--u) * 5);
+  min-width: 0;
+}
+.bp-dl-text strong {
+  overflow: hidden;
+  font-size: calc(var(--u) * 16);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bp-dl-text > span {
+  color: var(--bp-muted);
+  font-size: calc(var(--u) * 13);
+}
+.bp-dl-status {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 6);
+}
+.bp-dl-status svg {
+  width: calc(var(--u) * 14);
+  height: calc(var(--u) * 14);
+}
+.bp-dl-row.done .bp-dl-status {
+  color: #8ac3a2;
+}
+.bp-dl-row.failed .bp-dl-status {
+  color: #f3c2bc;
+}
+.bp-dl-progress {
+  height: calc(var(--u) * 6);
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ffffff14;
+}
+.bp-dl-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0ea5e9, #7dd3fc);
+  transition: width 250ms linear;
+}
+.bp-dl-progress.indeterminate i {
+  animation: bp-slide 1.2s ease-in-out infinite;
+}
+.bp-dl-version {
+  color: var(--bp-dim);
+  font-size: calc(var(--u) * 13);
+  font-weight: 600;
+}
+
+/* The release file picker */
+.bp-asset-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bp-asset-list li {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 10);
+  padding: calc(var(--u) * 10) calc(var(--u) * 12);
+  border-radius: calc(var(--u) * 8);
+  background: #ffffff0a;
+  font-size: calc(var(--u) * 14);
+}
+.bp-asset-list li span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bp-asset-list li small {
+  color: var(--bp-muted);
+}
+.bp-asset-list li svg {
+  width: calc(var(--u) * 18);
+  height: calc(var(--u) * 18);
+  color: var(--bp-muted);
+}
+.bp-asset-list li.focused {
+  background: #ffffff1f;
+  box-shadow: inset calc(var(--u) * 3) 0 0 var(--bp-accent);
+}
+
 /* ── Dialogs: the update prompt and its progress ─── */
 .bp-dialog-backdrop {
   position: fixed;

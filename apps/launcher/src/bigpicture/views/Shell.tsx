@@ -15,11 +15,12 @@ import { HintBar } from "./HintBar";
 import { Backdrop, GameHeader } from "./GameHeader";
 import { Details } from "./Details";
 import { Menu } from "./Menu";
-import { Placeholder } from "./Placeholder";
+import { Discover, newDiscoverState } from "./Discover";
+import { Downloads } from "./Downloads";
 import { Home } from "./Home";
 import { ShelfNavigator } from "../nav/shelf";
 
-type Overlay = { kind: "details"; id: string } | { kind: "menu" } | null;
+type Overlay = { kind: "details"; app: BpApp } | { kind: "menu" } | null;
 
 const byTitle = (a: BpApp, b: BpApp) => a.title.localeCompare(b.title, undefined, { sensitivity: "base", numeric: true });
 export function sortApps(apps: BpApp[], sort: AllSort) {
@@ -51,6 +52,7 @@ export function Shell() {
   /** Each tab's focused app, so coming back to a tab finds the same tile. */
   const memory = useRef(new Map<string, string>());
   const homeNav = useRef(new ShelfNavigator());
+  const discover = useRef(newDiscoverState());
   const [focused, setFocused] = useState<BpApp | null>(null);
   /** Which way the last tab change went, for the page's slide. */
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -83,6 +85,8 @@ export function Shell() {
     return true;
   };
   const first = tabs[0];
+  /** B on Discover and Downloads: back to the library tab they were reached from. */
+  const backToLibrary = { label: "Library", go: () => go(keepTab(tabs, library.current).id) };
   const toFirst = tab.id === first.id ? undefined : { label: first.label, go: () => setSelectedId(first.id) };
 
   const grid = tab.kind === "all" || tab.kind === "console";
@@ -91,8 +95,10 @@ export function Shell() {
     if (tab.kind === "console") return sortApps(installed.filter((a) => consoleOf.get(a.id) === tab.console!.id), "name");
     return [];
   }, [tab, installed, consoleOf, settings.allSort]);
-  const shown = grid || tab.kind === "home" ? focused : null;
-  const consoleName = (app: BpApp) => consoles.get(consoleOf.get(app.id) ?? "other").name;
+  const shown = tab.kind === "downloads" ? null : focused;
+  const openDetails = (app: BpApp) => setOverlay({ kind: "details", app });
+  const toDownloads = () => go("downloads");
+  const consoleName = (app: BpApp) => consoles.get(consoleOf.get(app.id) ?? resolveConsole(app, data.apps[app.id]?.consoleOverride)).name;
 
   return (
     <>
@@ -109,8 +115,8 @@ export function Shell() {
               nav={homeNav.current}
               onFocus={setFocused}
               onGlobal={global}
-              onDetails={(app) => setOverlay({ kind: "details", id: app.id })}
-              onDownloads={() => setSelectedId("downloads")}
+              onDetails={openDetails}
+              onDownloads={toDownloads}
               consoleName={consoleName}
             />
           ) : grid ? (
@@ -123,17 +129,29 @@ export function Shell() {
                 onFocus={setFocused}
                 onGlobal={global}
                 back={toFirst}
-                onDetails={(app) => setOverlay({ kind: "details", id: app.id })}
-                onDownloads={() => setSelectedId("downloads")}
+                onDetails={openDetails}
+                onDownloads={toDownloads}
               />
             </div>
+          ) : tab.kind === "discover" ? (
+            <Discover
+              state={discover.current}
+              memory={memory.current}
+              focused={focused}
+              onFocus={setFocused}
+              onGlobal={global}
+              back={backToLibrary}
+              onDetails={openDetails}
+              onDownloads={toDownloads}
+              consoleName={consoleName}
+            />
           ) : (
-            <Placeholder tab={tab} onGlobal={global} back={toFirst} />
+            <Downloads onFocus={setFocused} onGlobal={global} back={backToLibrary} onDetails={openDetails} />
           )}
         </div>
       </main>
       <HintBar />
-      {overlay?.kind === "details" && <Details id={overlay.id} onClose={() => setOverlay(null)} />}
+      {overlay?.kind === "details" && <Details app={overlay.app} onClose={() => setOverlay(null)} />}
       {overlay?.kind === "menu" && <Menu onClose={() => setOverlay(null)} />}
     </>
   );

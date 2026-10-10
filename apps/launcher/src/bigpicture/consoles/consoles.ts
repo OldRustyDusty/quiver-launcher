@@ -80,6 +80,11 @@ export class ConsoleCatalog {
     return this.byId.get(id) ?? { id, name: id, short: META[id]?.short ?? id, brand: "", year: META[id]?.year, special: false };
   }
 
+  /** The catalog's consoles (not Apps & Tools or Other), in its own order. */
+  ids(): string[] {
+    return [...this.facetIndex.keys()];
+  }
+
   /** Orders consoles by maker, then year, then the catalog's own order. */
   compare = (a: ConsoleInfo, b: ConsoleInfo): number => {
     const rank = (c: ConsoleInfo) => {

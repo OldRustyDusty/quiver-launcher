@@ -27,7 +27,7 @@ export function FallbackArt({ app }: { app: BpApp }) {
 function Badge({ app }: { app: BpApp }) {
   switch (app.state) {
     case "notInstalled":
-      return <span className="bp-badge" title="Not installed"><Download /></span>;
+      return <span className="bp-badge" title={app.inLibrary ? "In your library, not installed" : "Not in your library"}><Download /></span>;
     case "updateAvailable":
       return <span className="bp-badge update" title="Update available"><ArrowUp /></span>;
     case "error":

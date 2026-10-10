@@ -22,6 +22,7 @@ import { useBridge } from "./useBridge";
 import { isInstalled, type BpState } from "./bridge";
 import { Shell } from "./views/Shell";
 import { usePlayFlow } from "./updates/PlayFlow";
+import { AssetPicker } from "./updates/AssetPicker";
 import "./bigpicture.css";
 
 const io = { read: bpNative.readSidecar, write: bpNative.writeSidecar };
@@ -210,6 +211,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
       >
         <Shell />
         {flow.ui}
+        <AssetPicker />
         {debug && (
           <aside className="bp-debug">
             <strong>

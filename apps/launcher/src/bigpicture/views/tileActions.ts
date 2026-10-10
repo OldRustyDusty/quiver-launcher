@@ -30,7 +30,8 @@ export function tileHints(app: BpApp | null | undefined, back?: Back): ButtonHin
       hints.push({ action: "accept", label: app.installedVersion ? "Play" : "Retry" });
       break;
     case "notInstalled":
-      hints.push({ action: "accept", label: "Get" });
+      // In the library but never installed: Install. From the catalog: Get adds it and downloads it.
+      hints.push({ action: "accept", label: app.inLibrary ? "Install" : "Get" });
       break;
   }
   if (app) hints.push({ action: "details", label: "Details" });

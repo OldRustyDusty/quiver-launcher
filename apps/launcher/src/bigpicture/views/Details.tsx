@@ -1,11 +1,13 @@
 /** A game's page (Y). For now its art, name, versions and description; its buttons come in S11. */
 import { useBp, useInputHandler } from "../context";
 import { LAYER } from "../input/router";
+import type { BpApp } from "../bridge";
 import { versionLabel } from "../../versions";
 
-export function Details({ id, onClose }: { id: string; onClose: () => void }) {
+/** `app` as it was opened; shown live from the library when it's in it (a game from Discover may not be). */
+export function Details({ app: opened, onClose }: { app: BpApp; onClose: () => void }) {
   const { bridge } = useBp();
-  const app = bridge.apps.find((a) => a.id === id);
+  const app = bridge.apps.find((a) => a.id === opened.id) ?? opened;
   useInputHandler(
     {
       onAction(action) {

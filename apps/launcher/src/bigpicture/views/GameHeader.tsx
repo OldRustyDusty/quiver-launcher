@@ -1,6 +1,6 @@
 /** The focused game: its logo (or name) and chips for its console, version and state; and its art behind everything. */
 import { useEffect, useState } from "react";
-import { ArrowUpCircle, Clock, Gamepad2, AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowUpCircle, Clock, Download, Gamepad2 } from "lucide-react";
 import type { BpApp } from "../bridge";
 import { versionLabel } from "../../versions";
 
@@ -44,6 +44,12 @@ export function GameChips({ app, consoleName }: { app: BpApp; consoleName: strin
       ) : app.latestVersion ? (
         <span className="bp-chip">{versionLabel(app.latestVersion)}</span>
       ) : null}
+      {app.state === "notInstalled" && (
+        <span className="bp-chip accent">
+          <Download aria-hidden="true" />
+          {app.inLibrary ? "In your library · not installed" : "Not in your library"}
+        </span>
+      )}
       {app.state === "error" && (
         <span className="bp-chip danger">
           <AlertTriangle aria-hidden="true" />

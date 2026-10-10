@@ -1,0 +1,171 @@
+/**
+ * Discover (spec §8): catalog games and library games not yet installed, with
+ * a filter row above (library: not in it / in it / all; then consoles). Up from
+ * the grid's top row goes to the filters. A gets a game: adds it to the library
+ * and downloads it in one press. Pages load as focus nears the end.
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Entry } from "@quiverlauncher/api";
+import { useBp, useInputHandler } from "../context";
+import type { BpApp } from "../bridge";
+import type { InputAction } from "../input/actions";
+import { GameHeader } from "./GameHeader";
+import { GridTab, type Back } from "./GridTab";
+import { discoverApps, type LibraryFilter } from "./lists";
+
+/** Kept by the shell: Discover comes back as it was left. */
+export type DiscoverState = {
+  filter: LibraryFilter;
+  consoleId: string | null;
+  /** Catalog pages loaded, per console ("*" for all). */
+  pages: Map<string, { entries: Entry[]; cursor: string | null; done: boolean; loading: boolean; error: string | null }>;
+};
+
+export const newDiscoverState = (): DiscoverState => ({ filter: "notInLibrary", consoleId: null, pages: new Map() });
+
+const LIBRARY_CHIPS: { id: LibraryFilter; label: string }[] = [
+  { id: "notInLibrary", label: "Not in library" },
+  { id: "inLibrary", label: "In library" },
+  { id: "all", label: "All" },
+];
+
+type Chip = { kind: "library"; id: LibraryFilter; label: string } | { kind: "console"; id: string | null; label: string };
+
+type Props = {
+  state: DiscoverState;
+  memory: Map<string, string>;
+  focused: BpApp | null;
+  onFocus: (app: BpApp | null) => void;
+  onGlobal: (action: InputAction) => boolean;
+  back?: Back;
+  onDetails: (app: BpApp) => void;
+  onDownloads: () => void;
+  consoleName: (app: BpApp) => string;
+};
+
+export function Discover({ state, memory, focused, onFocus, onGlobal, back, onDetails, onDownloads, consoleName }: Props) {
+  const { bridge, consoles } = useBp();
+  const [filter, setFilter] = useState(state.filter);
+  const [consoleId, setConsoleId] = useState(state.consoleId);
+  const [zone, setZone] = useState<"filters" | "grid">("grid");
+  const [, setLoaded] = useState(0);
+  const key = consoleId ?? "*";
+  if (!state.pages.has(key)) state.pages.set(key, { entries: [], cursor: null, done: false, loading: false, error: null });
+  const page = state.pages.get(key)!;
+
+  const loadMore = useCallback(() => {
+    const p = state.pages.get(key)!;
+    if (p.loading || p.done) return;
+    p.loading = true;
+    bridge
+      .discover({ console: consoleId ?? undefined, cursor: p.cursor, limit: 48 })
+      .then((next) => {
+        p.entries = [...p.entries, ...next.items];
+        p.cursor = next.nextCursor;
+        p.done = next.isDone;
+        p.error = null;
+      })
+      .catch((e) => void (p.error = e instanceof Error ? e.message : String(e)))
+      .finally(() => {
+        p.loading = false;
+        setLoaded((n) => n + 1);
+      });
+  }, [bridge, consoleId, key, state.pages]);
+
+  useEffect(() => {
+    if (filter !== "inLibrary" && !page.entries.length) loadMore();
+  }, [filter, key, page.entries.length, loadMore]);
+
+  const catalog = useMemo(() => page.entries.map((e) => bridge.view(e)), [page.entries, bridge]);
+  const apps = discoverApps(bridge.apps, catalog, filter, consoleId);
+
+  // Pages of games already in the library leave little to show: keep loading until there's a screenful.
+  useEffect(() => {
+    if (filter !== "inLibrary" && apps.length < 24 && page.entries.length && !page.done && !page.loading && !page.error) loadMore();
+  }, [filter, apps.length, page.entries.length, page.done, page.loading, page.error, loadMore]);
+
+  const chips: Chip[] = useMemo(() => {
+    const known = [...consoles.ids()].map((id) => consoles.get(id)).filter((c) => !c.special).sort(consoles.compare);
+    return [
+      ...LIBRARY_CHIPS.map((c) => ({ kind: "library" as const, ...c })),
+      { kind: "console" as const, id: null, label: "All consoles" },
+      ...known.map((c) => ({ kind: "console" as const, id: c.id, label: c.short })),
+    ];
+  }, [consoles]);
+  const [chip, setChip] = useState(0);
+  const chosen = (c: Chip) => (c.kind === "library" ? c.id === filter : c.id === consoleId);
+  const choose = (c: Chip) => {
+    if (c.kind === "library") setFilter((state.filter = c.id));
+    else setConsoleId((state.consoleId = c.id));
+  };
+
+  useInputHandler(
+    {
+      onAction(action) {
+        if (onGlobal(action)) return;
+        if (action === "left") setChip((i) => Math.max(0, i - 1));
+        else if (action === "right") setChip((i) => Math.min(chips.length - 1, i + 1));
+        else if (action === "accept") choose(chips[chip]);
+        else if (action === "down") setZone("grid");
+        else if (action === "back") back?.go();
+      },
+      hints: () => [
+        { action: "accept", label: "Choose" },
+        { action: "down", label: "Games" },
+        ...(back ? [{ action: "back" as const, label: back.label }] : []),
+      ],
+    },
+    undefined,
+    zone === "filters",
+  );
+
+  // Keep the focused chip in view.
+  useEffect(() => {
+    if (zone === "filters") document.querySelector(".bp-chip-row .focused")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [chip, zone]);
+
+  const loading = filter !== "inLibrary" && page.loading && !page.entries.length;
+  const emptyText =
+    page.error && filter !== "inLibrary"
+      ? { title: "Couldn't reach the catalog", text: page.error }
+      : filter === "inLibrary"
+        ? { title: "Everything in your library is installed", text: "Games you add but haven't installed show here." }
+        : { title: loading ? "Loading the catalog…" : "Nothing to find here", text: loading ? "" : "Try another console, or All." };
+
+  return (
+    <div className="bp-discover">
+      <GameHeader app={zone === "grid" ? focused : null} consoleName={focused && zone === "grid" ? consoleName(focused) : ""} />
+      <div className={`bp-chip-row${zone === "filters" ? " active" : ""}`} role="toolbar" aria-label="Filters">
+        {chips.map((c, i) => (
+          <button
+            key={`${c.kind}:${c.id}`}
+            type="button"
+            className={`bp-filter${chosen(c) ? " chosen" : ""}${zone === "filters" && i === chip ? " focused" : ""}${c.kind === "console" && c.id === null ? " split" : ""}`}
+            onClick={() => {
+              setChip(i);
+              choose(c);
+            }}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <GridTab
+        key={`${filter}:${key}`}
+        tabId={`discover:${filter}:${key}`}
+        apps={apps}
+        memory={memory}
+        onFocus={onFocus}
+        onGlobal={onGlobal}
+        back={back}
+        onDetails={onDetails}
+        onDownloads={onDownloads}
+        active={zone === "grid"}
+        onEdge={(a) => a === "up" && setZone("filters")}
+        onNearEnd={filter !== "inLibrary" ? loadMore : undefined}
+        onPointerFocus={() => setZone("grid")}
+        empty={emptyText}
+      />
+    </div>
+  );
+}
