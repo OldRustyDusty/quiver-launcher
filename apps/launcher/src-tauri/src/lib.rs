@@ -537,7 +537,8 @@ pub fn run() {
             pick_program,
             gamepad::controllers,
             bigpicture::bp_read_sidecar,
-            bigpicture::bp_write_sidecar
+            bigpicture::bp_write_sidecar,
+            bigpicture::bp_launch_args
         ])
         .run(tauri::generate_context!())
         .expect("error while running Quiver Launcher");

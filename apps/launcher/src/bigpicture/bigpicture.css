@@ -1,0 +1,451 @@
+/*
+ * Big Picture: dark, cinematic, read from the couch (spec §8). Sizes are in
+ * --u, which is 1px at 720p times the player's UI scale, so everything grows
+ * with the screen. Always dark, whatever desktop mode's theme is.
+ */
+
+.bp-desktop {
+  display: contents;
+}
+
+.bp-root {
+  --bp-accent: #38bdf8;
+  --bp-accent-glow: #38bdf880;
+  --bp-fg: #f3f4f6;
+  --bp-muted: #a3aab5;
+  --bp-panel: #12141acc;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-rows: calc(var(--u) * 64) calc(var(--u) * 96) minmax(0, 1fr) calc(var(--u) * 54);
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  background: #07080a;
+  color: var(--bp-fg);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  user-select: none;
+  color-scheme: dark;
+}
+
+.bp-root > :not(.bp-backdrop, .bp-overlay) {
+  position: relative;
+  z-index: 1;
+}
+
+/* The focused game's hero, blurred and darkened behind everything; crossfades in 250 ms. */
+.bp-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.bp-backdrop img {
+  position: absolute;
+  inset: calc(var(--u) * -40);
+  width: calc(100% + var(--u) * 80);
+  height: calc(100% + var(--u) * 80);
+  object-fit: cover;
+  filter: blur(calc(var(--u) * 26)) brightness(0.36) saturate(1.15);
+  opacity: 0;
+  transition: opacity 250ms ease;
+}
+.bp-backdrop img.shown {
+  opacity: 1;
+}
+.bp-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 0%, transparent 0%, #07080acc 70%), linear-gradient(180deg, #07080a66 0%, transparent 30%, #07080aee 100%);
+}
+
+/* Tabs */
+.bp-tabstrip {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 14);
+  padding: 0 calc(var(--u) * 48);
+}
+.bp-tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: calc(var(--u) * 6);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.bp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 6);
+  padding: calc(var(--u) * 7) calc(var(--u) * 16);
+  border-radius: 999px;
+  color: var(--bp-muted);
+  font-size: calc(var(--u) * 17);
+  font-weight: 600;
+}
+.bp-tab.selected {
+  background: #ffffff1f;
+  color: #fff;
+  box-shadow: inset 0 calc(var(--u) * -3) 0 var(--bp-accent);
+}
+.bp-tabs-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--u) * 6);
+  padding-left: calc(var(--u) * 12);
+  border-left: 1px solid #ffffff26;
+  white-space: nowrap;
+}
+.bp-tab-count {
+  min-width: calc(var(--u) * 20);
+  padding: 0 calc(var(--u) * 6);
+  border-radius: 999px;
+  background: var(--bp-accent);
+  color: #04121b;
+  font-size: calc(var(--u) * 12);
+  text-align: center;
+}
+
+/* The focused game's name, console and versions */
+.bp-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: calc(var(--u) * 6);
+  padding: 0 calc(var(--u) * 48) calc(var(--u) * 6);
+  min-width: 0;
+}
+.bp-logo {
+  max-width: calc(var(--u) * 420);
+  max-height: calc(var(--u) * 58);
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 calc(var(--u) * 2) calc(var(--u) * 8) #000c);
+}
+.bp-title {
+  margin: 0;
+  font-size: calc(var(--u) * 32);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bp-meta {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: calc(var(--u) * 15);
+}
+.bp-meta > span + span::before {
+  content: " · ";
+  color: var(--bp-muted);
+}
+.bp-update {
+  color: var(--bp-accent);
+  font-weight: 700;
+}
+
+/* Grid */
+.bp-content {
+  min-height: 0;
+}
+.bp-grid-scroll {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bp-grid-scroll::-webkit-scrollbar {
+  display: none;
+}
+.bp-grid {
+  position: relative;
+}
+
+.bp-tile {
+  position: absolute;
+  transform: scale(1);
+  transition: transform 120ms ease-out;
+}
+.bp-tile.focused {
+  z-index: 2;
+  transform: scale(1.07);
+}
+.bp-tile-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: calc(var(--u) * 6);
+  background: #1b1d22;
+  box-shadow: 0 calc(var(--u) * 6) calc(var(--u) * 16) #0009;
+}
+.bp-tile.focused .bp-tile-inner {
+  box-shadow: 0 0 0 calc(var(--u) * 3) var(--bp-accent), 0 0 calc(var(--u) * 26) var(--bp-accent-glow);
+}
+.bp-tile-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bp-tile-scrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: calc(var(--u) * 28) calc(var(--u) * 10) calc(var(--u) * 12);
+  background: linear-gradient(180deg, transparent, #000d);
+  font-size: calc(var(--u) * 14);
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px #000;
+}
+.bp-tile.no-art .bp-tile-scrim {
+  min-height: 33%;
+  display: flex;
+  align-items: flex-end;
+}
+.bp-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding-bottom: 30%;
+}
+.bp-fallback img {
+  width: 46%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 calc(var(--u) * 4) calc(var(--u) * 10) #0008);
+}
+
+.bp-badge {
+  position: absolute;
+  top: calc(var(--u) * 8);
+  right: calc(var(--u) * 8);
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 28);
+  height: calc(var(--u) * 28);
+  border-radius: 50%;
+  background: #000b;
+  color: #fff;
+}
+.bp-badge svg {
+  width: calc(var(--u) * 16);
+  height: calc(var(--u) * 16);
+}
+.bp-badge.update {
+  background: var(--bp-accent);
+  color: #04121b;
+}
+.bp-badge.error {
+  background: #e38c87;
+  color: #2a0c0a;
+}
+.bp-badge.busy svg {
+  animation: bp-spin 1s linear infinite;
+}
+
+.bp-progress {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: calc(var(--u) * 5);
+  background: #000a;
+  overflow: hidden;
+}
+.bp-progress i {
+  display: block;
+  height: 100%;
+  background: var(--bp-accent);
+  transition: width 200ms linear;
+}
+.bp-progress.indeterminate i {
+  animation: bp-slide 1.2s ease-in-out infinite;
+}
+
+/* Hints */
+.bp-hints {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(var(--u) * 26);
+  padding: 0 calc(var(--u) * 48);
+  font-size: calc(var(--u) * 15);
+  font-weight: 600;
+  background: linear-gradient(180deg, transparent, #000a);
+}
+.bp-root > .bp-hints {
+  z-index: 20; /* Above overlays: the hints always show what the buttons do. */
+  grid-row: 4;
+}
+.bp-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 8);
+}
+.bp-hold-note {
+  color: var(--bp-muted);
+  font-weight: 500;
+}
+
+.bp-glyph {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: calc(var(--u) * 26);
+  height: calc(var(--u) * 26);
+  padding: 0 calc(var(--u) * 7);
+  overflow: hidden;
+  border-radius: calc(var(--u) * 7);
+  background: #ffffff24;
+  color: #fff;
+  font-size: calc(var(--u) * 12);
+  font-weight: 800;
+  line-height: 1;
+}
+.bp-glyph.round {
+  width: calc(var(--u) * 26);
+  padding: 0;
+  border-radius: 50%;
+  background: #1c1f25;
+  border: calc(var(--u) * 2) solid var(--face, #ffffff55);
+  color: var(--face, #fff);
+  font-size: calc(var(--u) * 13);
+}
+.bp-glyph.key {
+  border-radius: calc(var(--u) * 5);
+  background: transparent;
+  border: 1px solid #ffffff66;
+  font-weight: 700;
+}
+/* Hold to confirm: the glyph fills while it's held. */
+.bp-glyph.holding::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #ffffff66;
+  transform-origin: left;
+  animation: bp-fill var(--hold) linear forwards;
+}
+
+/* Overlays */
+.bp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: #05060ae6;
+  backdrop-filter: blur(calc(var(--u) * 6));
+}
+.bp-details {
+  display: grid;
+  grid-template-rows: minmax(0, 45%) minmax(0, 1fr);
+  overflow: hidden;
+}
+.bp-details-hero {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  mask-image: linear-gradient(180deg, #000 60%, transparent);
+}
+.bp-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 12);
+  padding: 0 calc(var(--u) * 64);
+  margin-top: calc(var(--u) * -40);
+}
+.bp-description {
+  max-width: calc(var(--u) * 760);
+  margin: 0;
+  color: #d1d5db;
+  font-size: calc(var(--u) * 15);
+  line-height: 1.5;
+}
+.bp-error {
+  margin: 0;
+  color: #f3c2bc;
+}
+.bp-menu {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 calc(var(--u) * 120);
+}
+.bp-menu h2 {
+  margin: 0 0 calc(var(--u) * 18);
+  font-size: calc(var(--u) * 26);
+}
+.bp-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: calc(var(--u) * 520);
+}
+.bp-menu li {
+  padding: calc(var(--u) * 14) calc(var(--u) * 18);
+  border-radius: calc(var(--u) * 8);
+  font-size: calc(var(--u) * 17);
+}
+.bp-menu li.focused {
+  background: #ffffff1f;
+  box-shadow: inset calc(var(--u) * 3) 0 0 var(--bp-accent);
+}
+
+.bp-empty {
+  display: grid;
+  place-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--bp-muted);
+}
+.bp-empty h2 {
+  margin: 0 0 calc(var(--u) * 8);
+  color: var(--bp-fg);
+  font-size: calc(var(--u) * 24);
+}
+.bp-empty p {
+  margin: 0;
+  font-size: calc(var(--u) * 15);
+}
+
+/* Reduce motion: no scaling or sliding; the focus border stays. */
+.bp-reduce-motion *,
+.bp-reduce-motion *::before,
+.bp-reduce-motion *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
+}
+.bp-reduce-motion .bp-tile.focused {
+  transform: none;
+}
+.bp-reduce-motion .bp-glyph.holding::after {
+  animation-duration: var(--hold) !important;
+}
+
+@keyframes bp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes bp-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+@keyframes bp-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

@@ -37,6 +37,18 @@ pub fn bp_write_sidecar(data: State<Data>, value: serde_json::Value) -> Result<(
     write_json_atomic(&sidecar_path(&data), &value)
 }
 
+/// How the launcher was started: `--bigpicture` opens straight into Big Picture.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchArgs {
+    big_picture: bool,
+}
+
+#[tauri::command]
+pub fn bp_launch_args() -> LaunchArgs {
+    LaunchArgs { big_picture: std::env::args().any(|a| a == "--bigpicture") }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

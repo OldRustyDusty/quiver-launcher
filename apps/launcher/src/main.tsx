@@ -9,6 +9,7 @@ import { startSpatialNavigation } from "./spatial";
 import { native } from "./native";
 import { ErrorBoundary } from "./boundary";
 import { showTheme, systemTheme } from "./theme";
+import { BigPictureHost } from "./bigpicture/BigPictureHost";
 
 // Until settings load, the window's own theme (set from them at start, or the system's).
 showTheme(systemTheme());
@@ -39,7 +40,9 @@ createRoot(document.getElementById("root")!).render(
       )}
     >
       <LauncherProvider>
-        <App />
+        <BigPictureHost>
+          <App />
+        </BigPictureHost>
       </LauncherProvider>
     </ErrorBoundary>
   </StrictMode>,

@@ -73,6 +73,12 @@ export function setBindings(next: { keys?: Bindings; pad?: Bindings; padOff?: bo
   padOn = !next.padOff;
 }
 
+/** Big Picture (fork) handles keys and controllers itself while it's showing. */
+let suspended = false;
+export function suspendSpatialNavigation(on: boolean) {
+  suspended = on;
+}
+
 let capture: { kind: "keys" | "pad"; resolve: (binding: string | null) => void } | null = null;
 /** Resolves to the next key or controller press, or null when it's cancelled (Escape). */
 export function captureNext(kind: "keys" | "pad") {
@@ -134,6 +140,7 @@ export function startSpatialNavigation() {
   window.addEventListener(
     "keydown",
     (e) => {
+      if (suspended) return;
       if (capture?.kind === "pad" && e.key === "Escape") {
         e.stopImmediatePropagation();
         return finish(null);
@@ -165,7 +172,7 @@ export function startSpatialNavigation() {
   void listen<{ key: string; down: boolean }>("pad", ({ payload: { key, down } }) => {
     clearTimeout(repeats.get(key));
     repeats.delete(key);
-    if (!down) return;
+    if (!down || suspended) return;
     if (capture?.kind === "pad") return finish(key);
     if (!padOn || !document.hasFocus()) return; // A game is running in front.
     const action = ACTIONS.find((a) => pad[a].includes(key));

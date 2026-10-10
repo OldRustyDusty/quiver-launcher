@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { familyOf, keyAction, padAction, type InputAction } from "./actions";
 import { InputGate } from "./gate";
 import { RepeatFilter, type InputEvent } from "./repeat";
-import { InputRouter, type InputHandler } from "./router";
+import { InputRouter, LAYER, type InputHandler } from "./router";
 
 const key = (k: string, mods: Partial<KeyboardEvent> = {}) => keyAction({ key: k, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, ...mods });
 
@@ -202,6 +202,17 @@ describe("InputRouter", () => {
     router.dispatch(press("secondary"));
     router.push(handler().h);
     vi.advanceTimersByTime(2000);
+    expect(view.got).toEqual([]);
+  });
+
+  it("keeps a dialog above a view that mounts after it", () => {
+    const router = new InputRouter();
+    const dialog = handler();
+    const view = handler();
+    router.push(dialog.h, LAYER.dialog);
+    router.push(view.h);
+    router.dispatch(press("accept"));
+    expect(dialog.got).toEqual(["accept"]);
     expect(view.got).toEqual([]);
   });
 

@@ -1,0 +1,71 @@
+/**
+ * A 2:3 tile (spec §8.1): the art (or a stand-in), the title over a scrim when
+ * focused or when there's no art, a state badge, and a progress bar. Focus
+ * comes from the view (`focused`), not the browser.
+ */
+import { memo, useState } from "react";
+import { AlertTriangle, ArrowUp, Download, Loader2 } from "lucide-react";
+import type { BpApp } from "../bridge";
+
+/** A steady hue per app, for tiles without art. */
+export function hueOf(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+export function FallbackArt({ app }: { app: BpApp }) {
+  const [iconFailed, setIconFailed] = useState(false);
+  const hue = hueOf(app.id);
+  return (
+    <div className="bp-fallback" style={{ background: `linear-gradient(180deg, hsl(${hue} 45% 32%), hsl(${(hue + 40) % 360} 50% 12%))` }}>
+      {app.art.icon && !iconFailed ? <img src={app.art.icon} alt="" onError={() => setIconFailed(true)} /> : null}
+    </div>
+  );
+}
+
+function Badge({ app }: { app: BpApp }) {
+  switch (app.state) {
+    case "notInstalled":
+      return <span className="bp-badge" title="Not installed"><Download /></span>;
+    case "updateAvailable":
+      return <span className="bp-badge update" title="Update available"><ArrowUp /></span>;
+    case "error":
+      return <span className="bp-badge error" title={app.error}><AlertTriangle /></span>;
+    case "queued":
+    case "downloading":
+    case "updating":
+      return <span className="bp-badge busy" title={app.state === "queued" ? "Waiting to download" : "Downloading"}><Loader2 /></span>;
+    default:
+      return null;
+  }
+}
+
+/** Placed by the grid: numbers, not a style object, so unchanged tiles skip rendering. */
+export const GameTile = memo(function GameTile({ app, focused, x, y, w, h }: { app: BpApp; focused: boolean; x: number; y: number; w: number; h: number }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const art = app.art.capsule && failed !== app.art.capsule ? app.art.capsule : null;
+  const busy = app.state === "downloading" || app.state === "updating";
+  return (
+    <div
+      className={`bp-tile${focused ? " focused" : ""}${art ? "" : " no-art"}`}
+      aria-label={app.title} aria-current={focused || undefined}
+      style={{ left: x, top: y, width: w, height: h }}
+    >
+      <div className="bp-tile-inner">
+        {art ? <img className="bp-tile-art" src={art} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setFailed(art)} /> : <FallbackArt app={app} />}
+        {(focused || !art) && (
+          <div className="bp-tile-scrim">
+            <span>{app.title}</span>
+          </div>
+        )}
+        <Badge app={app} />
+        {busy && (
+          <div className={`bp-progress${app.progress === null ? " indeterminate" : ""}`}>
+            <i style={{ width: `${(app.progress ?? 0.3) * 100}%` }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});

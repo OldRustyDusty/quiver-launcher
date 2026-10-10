@@ -6,4 +6,6 @@ export const bpNative = {
   readSidecar: () => invoke<unknown>("bp_read_sidecar"),
   /** Replaces bigpicture.json atomically. */
   writeSidecar: (value: unknown) => invoke<void>("bp_write_sidecar", { value }),
+  /** Whether the launcher was started with --bigpicture. */
+  launchArgs: () => invoke<{ bigPicture: boolean }>("bp_launch_args"),
 };

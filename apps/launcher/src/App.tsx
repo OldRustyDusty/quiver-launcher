@@ -18,6 +18,7 @@ import { native } from "./native";
 import { isLocal, isOwn } from "./custom";
 import { AddApp } from "./own";
 import type { Theme } from "./theme";
+import { BigPictureButton } from "./bigpicture/BigPictureButton";
 
 type Tab = "library" | "browse";
 /** A page over the library or catalog: an app's, or an original game's. */
@@ -117,6 +118,7 @@ export function App() {
           </button>
         </nav>
         <AccountButton onSignIn={() => setSigningIn(true)} />
+        <BigPictureButton />
         <button className="icon" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
           <Settings2 size={18} />
         </button>

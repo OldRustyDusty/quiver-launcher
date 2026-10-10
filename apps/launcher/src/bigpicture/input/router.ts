@@ -24,23 +24,32 @@ export type InputHandler = {
 
 export type Hold = { action: InputAction; since: number; duration: number };
 
+/** Higher layers are always above lower ones, whatever order they were pushed in. */
+export const LAYER = { view: 0, overlay: 1, dialog: 2, keyboard: 3 } as const;
+export type Layer = (typeof LAYER)[keyof typeof LAYER];
+
 export class InputRouter {
   private stack: InputHandler[] = [];
+  private readonly layers = new Map<InputHandler, Layer>();
   private hold: (Hold & { timer: ReturnType<typeof setTimeout> }) | null = null;
   private readonly listeners = new Set<() => void>();
   private version = 0;
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
-  /** Puts a handler on top; returns what takes it off again. */
-  push(handler: InputHandler): () => void {
-    this.cancelHold();
-    this.stack = [...this.stack, handler];
+  /** Puts a handler on top of its layer (a view remounting under an open dialog stays under it); returns what takes it off again. */
+  push(handler: InputHandler, layer: Layer = LAYER.view): () => void {
+    const before = this.top;
+    this.layers.set(handler, layer);
+    const at = this.stack.findIndex((h) => this.layers.get(h)! > layer);
+    this.stack = at < 0 ? [...this.stack, handler] : [...this.stack.slice(0, at), handler, ...this.stack.slice(at)];
+    if (this.top !== before) this.cancelHold();
     this.changed();
     return () => {
       if (!this.stack.includes(handler)) return;
       if (this.top === handler) this.cancelHold();
       this.stack = this.stack.filter((h) => h !== handler);
+      this.layers.delete(handler);
       this.changed();
     };
   }
