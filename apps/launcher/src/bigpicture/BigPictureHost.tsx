@@ -251,7 +251,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
         className={`bp-root${data.settings.reduceMotion ? " bp-reduce-motion" : ""}${pointer ? " bp-pointer" : ""}${inGame ? " bp-in-game" : ""}`}
         style={{ "--u": `${scale}px` } as CSSProperties}
         role="application"
-        aria-label="Quiver Launcher Big Picture"
+        aria-label="Big Quiver Launcher, Big Picture"
       >
         <Shell />
         {flow.ui}

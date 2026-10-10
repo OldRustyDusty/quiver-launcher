@@ -103,10 +103,10 @@ export function App() {
     <div className="shell">
       <header className="topbar">
         {/* As on the website; it goes to the library. */}
-        <button className="brand" aria-label="Quiver Launcher: go to your library" onClick={() => switchTab("library")}>
+        <button className="brand" aria-label="Big Quiver Launcher: go to your library" onClick={() => switchTab("library")}>
           <img src="/quiver-icon-96.png" alt="" width="34" height="34" />
           <span>
-            Quiver<span className="brand-label">LAUNCHER</span>
+            Big Quiver<span className="brand-label">LAUNCHER</span>
           </span>
         </button>
         <nav>
