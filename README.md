@@ -2,6 +2,8 @@
 
 ![Big Quiver Launcher's Big Picture Home tab: a hero banner for the focused game above a row of recently installed games](docs/bigpicture/images/home.webp)
 
+![Big Quiver Launcher's Discover tab: Nintendo 64 games from the Quiver catalog, with library and console filters above the grid](docs/bigpicture/images/discover.webp)
+
 **Quiver Launcher with a Big Picture mode.** It turns [Quiver Launcher 4](https://github.com/tgeorgiadis/quiver-launcher)
 into a fullscreen, controller-first launcher, like Steam's Big Picture or the Steam Deck. You can browse your library by
 console, find new games, download them and play, all from the couch with an Xbox or PlayStation controller.
