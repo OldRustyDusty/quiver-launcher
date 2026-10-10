@@ -46,6 +46,53 @@ function UpdateAllCard({ count, focused }: { count: number; focused: boolean }) 
   );
 }
 
+/**
+ * Nothing installed yet. With a Quiver Launcher 3 library on this computer, Home
+ * offers to bring it over (A), as desktop mode does: a first start straight into
+ * Big Picture shouldn't need desktop mode for that.
+ */
+function EmptyHome({ onGlobal }: { onGlobal: (action: InputAction) => boolean }) {
+  const { bridge } = useBp();
+  const [state, setState] = useState<"idle" | "busy" | string[]>("idle");
+  const old = bridge.oldApps;
+  const bring = () => {
+    if (state === "busy" || !old.length) return;
+    setState("busy");
+    void bridge.importOld().then(setState, () => setState("idle"));
+  };
+  useInputHandler({
+    onAction(action) {
+      if (!onGlobal(action) && action === "accept") bring();
+    },
+    hints: () => (old.length && state === "idle" ? [{ action: "accept", label: "Bring them over" }] : []),
+  });
+  if (old.length && state !== "busy" && !Array.isArray(state))
+    return (
+      <div className="bp-empty bp-import">
+        <h2>Bring over your Quiver Launcher 3 library?</h2>
+        <p>
+          It's on this computer with {old.length} {old.length === 1 ? "game" : "games"}. Installed games stay where they are, so nothing downloads again.
+        </p>
+        <button type="button" className="bp-details-button focused" onClick={bring}>
+          <Glyph action="accept" size={22} />
+          Bring them over
+        </button>
+      </div>
+    );
+  return (
+    <div className="bp-empty">
+      <h2>{state === "busy" ? "Bringing your games over…" : "Your library is empty"}</h2>
+      <p>
+        {state === "busy"
+          ? "Matching them with the catalog."
+          : Array.isArray(state) && state.length
+            ? `Couldn't bring over: ${state.join(", ")}. Find them in Discover.`
+            : "Find something to play in Discover."}
+      </p>
+    </div>
+  );
+}
+
 /** The shelf row and column of the tile under the mouse, if any. */
 function cellAt(target: EventTarget) {
   const cell = (target as Element).closest?.("[data-row][data-col]");
@@ -91,14 +138,7 @@ export function Home({ nav, onFocus, onGlobal, onDetails, onDownloads, consoleNa
     hints: () => (shelf?.updateAll && !app ? [{ action: "secondary", label: "Update all" }] : tileHints(app)),
   });
 
-  if (!shelves.length) {
-    return (
-      <div className="bp-empty">
-        <h2>Your library is empty</h2>
-        <p>Find something to play in Discover.</p>
-      </div>
-    );
-  }
+  if (!shelves.length) return <EmptyHome onGlobal={onGlobal} />;
 
   const hero = app?.art.hero ?? app?.art.capsule;
   const step = (TILE_W + GAP) * scale;

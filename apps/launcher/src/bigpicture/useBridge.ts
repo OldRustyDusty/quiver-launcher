@@ -61,6 +61,10 @@ export function useBridge() {
       return job && "error" in job ? job.error : null;
     },
     cancelQueued: (id: string) => queue.cancel(id),
+    /** A Quiver Launcher 3 library on this computer, to bring over (upstream finds it). */
+    oldApps: launcher.oldApps,
+    /** Brings it over: installed apps stay where they are. Resolves to the names that couldn't come. */
+    importOld: () => launcher.importOld(),
     /** Uninstalls and removes from the library, as upstream's Remove does. */
     uninstall: (id: string) => launcher.remove(id),
     releases: (slug: string, limit?: number) => launcher.client.releases(slug, limit),

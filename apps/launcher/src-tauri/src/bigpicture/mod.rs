@@ -8,6 +8,7 @@ use super::Data;
 #[cfg(any(windows, target_os = "linux"))]
 mod pads;
 pub mod session;
+pub mod v3;
 
 /// Big Picture's own settings and per-app state, beside upstream's JSON files,
 /// which it never writes itself.

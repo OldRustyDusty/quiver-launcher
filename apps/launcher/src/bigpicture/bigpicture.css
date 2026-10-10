@@ -873,6 +873,14 @@
   color: var(--bp-fg);
   font-size: calc(var(--u) * 24);
 }
+.bp-import {
+  gap: calc(var(--u) * 6);
+  justify-items: center;
+}
+.bp-import p {
+  max-width: calc(var(--u) * 520);
+  margin-bottom: calc(var(--u) * 14) !important;
+}
 .bp-empty p {
   margin: 0;
   font-size: calc(var(--u) * 15);

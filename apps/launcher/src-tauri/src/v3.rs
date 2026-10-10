@@ -28,6 +28,8 @@ fn data_dirs() -> Vec<PathBuf> {
     ]
     .into_iter()
     .flatten()
+    // Big Picture (fork): a portable or moved 3.x, found through Velopack's log.
+    .chain(crate::bigpicture::v3::velopack_dirs())
     .collect()
 }
 
