@@ -177,3 +177,85 @@ handled upstream. "Skip this version" is stored in the sidecar, as in the spec.
   Discover searches the catalog once typing pauses. B clears the search. A physical keyboard types into the on-screen one.
 * Desktop mode shows a note when a controller is turned on (upstream's controller events). A or a click opens Big Picture.
 
+
+## 12. One games folder, shared with Quiver 3.5 (planned 2026-10-10, not built)
+
+**Status: planned only.** The user approved the design, and asked for the plan before any build. It needs a separate go-ahead
+to build. Until then nothing below exists.
+
+**Why.** Official Quiver 4.0 isn't released (upstream's latest is 3.5.0), so Big Quiver users come straight from 3.5. Upstream's
+import leaves imported games in 3.5's folder and puts new ones in `%APPDATA%\com.quiverlauncher.app\apps`. So games end up in
+two folders, 3.5 never sees games got in Quiver 4, and 3.5 shows stale versions for games Quiver 4 updated. The user wants
+**one known location per game, kept consistent in both apps**, with no orphaned or inconsistent files.
+
+**The rule.** 3.5's games folder is home: `settings.json` `AppsPath`, or `<3.5 root>\Apps` when that's empty. Every game lives in
+exactly one folder, recorded at that location by both apps. A game 3.5 already keeps in its own custom folder (`installPath`
+outside the games folder, such as `Q:\N64 PC Ports\…`) **stays where it is**, because both apps already agree on it (user's choice).
+
+**Facts this rests on** (checked against `E:\QuiverLauncher` and upstream `main`):
+* 3.5's library is `apps.json`: `{ "apps": [ … ] }` with `name`, `folderName`, `installPath`, `repository`, `repositorySource`,
+  `catalogEntryId`, `catalog`, `project`, `tags`, `appIconUrl`, `preferredVersion`, `skippedUpdateVersion`, and sometimes
+  `filesToAdd`, `mods` and `releaseAssetFilter`. Every entry of the user's has an `installPath`.
+* 3.5 reads a game's installed version from `version.txt` in the game's folder, not from `apps.json`.
+* 3.5 writes `apps.json` under an exclusive `apps.json.lock` (`Services/LibraryFileStore.cs`), and keeps the library in memory
+  while it runs.
+* Quiver 4 marks its installs with `.quiver-version`. It updates and removes a folder only when that file, or (for adopted
+  installs) `version.txt`, is there. An install with `dir` set lives there; otherwise it's `apps/<folder>`.
+
+**Opt-in.** Offered at import ("Keep Quiver 3 in step, in one games folder"), and in Big Picture Settings for people who
+imported earlier. Off by default. The setting and the backup's location are in `bigpicture.json`.
+
+**Catch-up on opt-in.** Games are matched by provider and repository, as upstream's import does. First a dry-run preview of
+counts and names. If 3.5 is running, the user is asked to close it. Then `apps.json` is backed up and the changes are applied:
+
+| Case | Action |
+|---|---|
+| Imported, already in a 3.5 location | Nothing. If Quiver 4's version is newer, write it into `version.txt` |
+| Installed by Quiver 4 into its own `apps` folder | **Move** it to 3.5's games folder, then record it in both apps |
+| Only in 3.5 | Bring it into Quiver 4 through upstream's import, in place |
+| The same game in both, two copies | Keep the newer version in 3.5's location. The other copy goes to the Recycle Bin, after the user confirms the list |
+| Uninstalled in Quiver 4 before opt-in | Leave 3.5 alone (catch-up never removes from `apps.json`) |
+
+**A move, per game.**
+1. Skip it while it's running, downloading or updating, and retry next start.
+2. Check free space.
+3. Copy with progress, then check the copy (file count and sizes).
+4. Write `.quiver-version` and `version.txt`.
+5. Record the location: Quiver 4's install gets `dir`, and `apps.json` gets an entry with `installPath`.
+6. **Only then** send the original to the Recycle Bin (user's choice).
+
+On a same-volume move, do a rename instead of the copy. If the move is cut short, the original stays, and nothing points at a
+partial copy.
+
+**Ongoing, while on.**
+* **New installs from Big Quiver** go into 3.5's games folder (with `dir` recorded) and are added to `apps.json`.
+* **Updates** write `version.txt` too.
+* **Uninstalls** remove the game's `apps.json` entry.
+* **Games found in Quiver 4's own `apps` folder on start** are swept into 3.5's folder, the same way. Those are installs by the
+  official Quiver 4 once it ships, which doesn't know this setting.
+* **When 3.5 is running,** `apps.json` changes wait until it's closed (they're queued in `bigpicture.json`). Writes take
+  `apps.json.lock`, and back up `apps.json` first.
+
+**Side effects to show the user.**
+* Desktop shortcuts to moved games break: recreate them with upstream's shortcut code.
+* Steam shortcuts break too, and re-adding one changes its app id (Steam keys it on exe and name), losing that shortcut's
+  playtime, art and controller layout. List the affected games.
+* Saves inside a game's folder move with it.
+
+**Turning it off.** "Stop keeping Quiver 3 in step" turns it off. It doesn't undo anything; the opt-in backup restores
+`apps.json` exactly.
+
+**Upstream touches (need logging in FORK_CHANGES).** `store.tsx`, about 15 lines:
+* `get()` installs new games into a given folder and records it as `dir`.
+* A `relocate(id, dir)` function records a moved install.
+
+Both go through upstream's own persistence, and the data formats stay unchanged. Writing 3.5's `apps.json` is fork code
+(Rust, `src-tauri/src/bigpicture/v3sync.rs`). It's a deliberate, approved exception: rule 3 covers Quiver 4's files, and 3.5's
+are written only in its own format, under its own lock.
+
+**Tests before touching real files.**
+* Every catch-up case, on a copy of the user's `apps.json`.
+* A move cut short at each step.
+* 3.5 running (lock held).
+* Two copies of one game.
+* An `apps.json` round-trip that keeps unknown fields untouched.
