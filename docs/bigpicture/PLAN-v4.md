@@ -76,11 +76,14 @@ apps/launcher/src-tauri/src/bigpicture/
 
 Resolution, first match wins:
 1. Sidecar `consoleOverride`.
-2. `entry.basedOn.console` (310/313 apps).
-3. `entry.consoles[0]`.
-4. Custom/local app: `item.art.consoles[0]` (upstream `GameArt`, when the player matched a game).
-5. `projectType` ∈ {tool, emulator} or an `apps`-alias tag → **Apps & Tools**.
+2. `projectType` ∈ {tool, emulator} → **Apps & Tools**. The catalog says these aren't games, even when they list consoles
+   (mGBA lists gba/gbc/gb, Wheel Wizard lists wii). A literal reading of spec §7.2 would have put them in console tabs.
+3. `entry.basedOn.console` (310/313 apps).
+4. `entry.consoles[0]`. Custom/local apps get their matched game's consoles here, from upstream's `customEntry`/`localEntry`.
+5. An app/tool tag → **Apps & Tools**.
 6. Otherwise → **Other**.
+
+Maker order follows spec §7.1 (Nintendo, Sega, Sony, Microsoft, then others), then release year. That's not the catalog's facet order (Nintendo, PlayStation, Xbox, Sega).
 
 There's no tag-alias guessing for catalog apps, because the catalog is authoritative. `consoles.ts` holds only **short labels** and **release
 years** keyed by the live ids (`gcn`, `gen`, `og xbox`…). Unknown future ids fall back to the catalog name, ordered by the facet order.
