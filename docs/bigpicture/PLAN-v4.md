@@ -15,6 +15,12 @@ map, screens and the test plan**. This file records only what changes because th
 5. "Desktop mode keeps working" means `pnpm typecheck`, `pnpm test` and `cargo test` stay green after every step.
 6. The Android rule (§1.7) no longer applies: v4 has no Android head.
 
+7. **Shared data with the official app (decided 2026-10-10).** Big Quiver Launcher keeps upstream's identifier
+   (`com.quiverlauncher.app`), so it uses the same data folder as the official Quiver Launcher 4. People can switch between
+   the two freely, for example going back to the official app when upstream releases before the fork catches up. This is why
+   rule 3 matters: upstream's files are only ever written through upstream's own code, and all of the fork's own state is in
+   `bigpicture.json`, which upstream ignores. Only the product name differs (installer, Start menu, title bar).
+
 ## 2. Architecture (replaces §3)
 
 ```
