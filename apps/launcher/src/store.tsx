@@ -105,7 +105,8 @@ type Launcher = {
   /** Adds a repository the catalog doesn't list and installs it. */
   addCustomApp: (app: CustomApp, latest: Release | undefined, art?: GameArt) => Entry;
   /** Adds a program on this computer, or makes a folder in the apps folder to fill; this device only. */
-  addLocalApp: (app: { kind: "program"; path: string; name: string } | { kind: "folder"; name: string }, art?: GameArt) => Promise<Entry>;
+  /** Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): a folder app may name a `dir` that's already there (one from Quiver 3). */
+  addLocalApp: (app: { kind: "program"; path: string; name: string } | { kind: "folder"; name: string; dir?: string }, art?: GameArt) => Promise<Entry>;
   /** Adds an app without installing it, such as one installed but not in the library. */
   add: (entry: Entry) => void;
   setUpdates: (id: string, updates: Install["updates"]) => void;
@@ -136,6 +137,12 @@ export const useLauncher = () => useContext(LauncherContext)!;
 /** Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): where a new install goes instead of the apps folder (Quiver 3's games folder); undefined keeps the apps folder. */
 let newInstallDir: ((entry: Entry, folder: string) => Promise<string | undefined>) | null = null;
 export const setNewInstallDir = (choose: typeof newInstallDir) => void (newInstallDir = choose);
+/** Big Picture (fork): where a new folder you fill is made instead of the apps folder (Quiver 3's games folder). */
+let newLocalFolder: ((name: string) => Promise<string | undefined>) | null = null;
+let newLocalFolderHome: string | null = null;
+export const setNewLocalFolder = (make: typeof newLocalFolder, home: string | null = null) => void ((newLocalFolder = make), (newLocalFolderHome = home));
+/** Big Picture (fork): the folder new folders you fill go in, when it isn't the apps folder. */
+export const localFolderHome = () => newLocalFolderHome;
 
 /** The release a player gets: the newest that isn't a pre-release, else the newest. */
 const latestOf = (releases: Release[]) => releases.find((r) => !r.prerelease) ?? releases[0];
@@ -569,9 +576,10 @@ function LauncherState({ saved, children }: { saved: Saved; children: ReactNode 
         const wine = config.os === "linux" && /\.(exe|bat|cmd)$/i.test(file);
         install = { local: true, version: "", dir: app.path.slice(0, cut), folder: file, executables: [], program: app.path, ...(wine ? { wine } : {}) };
       } else {
-        const folder = await native.createAppFolder(folderNameFor(app.name));
+        const dir = app.dir ?? (await newLocalFolder?.(folderNameFor(app.name)));
+        const folder = dir ? dir.split(/[\\/]/).filter(Boolean).at(-1)! : await native.createAppFolder(folderNameFor(app.name));
         local = { kind: "folder", folder, name: app.name };
-        install = { local: true, version: "", folder, executables: [] };
+        install = { local: true, version: "", folder, executables: [], ...(dir ? { dir } : {}) };
       }
       const entry = localEntry(id, local, art);
       setCatalog((c) => ({ ...c, [id]: entry }));

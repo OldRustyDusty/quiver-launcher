@@ -132,13 +132,16 @@ pub fn bp_v3_library() -> Option<V3Library> {
     })
 }
 
-/// Which entry a change is for: the catalog's id when both have one, else the repository.
+/// Which entry a change is for: the catalog's id when both have one, else the repository,
+/// else (an app of the player's own, with no repository) its folder.
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct V3Match {
     pub catalog_entry_id: Option<String>,
     pub repository: Option<String>,
     pub provider: String,
+    #[serde(default)]
+    pub install_path: Option<String>,
 }
 
 impl V3Match {
@@ -149,6 +152,10 @@ impl V3Match {
         let provider = field(app, "repositorySource").unwrap_or("github");
         match (&self.repository, field(app, "repository")) {
             (Some(ours), Some(theirs)) => ours.eq_ignore_ascii_case(theirs) && self.provider.eq_ignore_ascii_case(provider),
+            (None, None) => match (&self.install_path, field(app, "installPath")) {
+                (Some(ours), Some(theirs)) => same_path(ours, theirs),
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -407,8 +414,9 @@ fn free_space(dir: &Path) -> Option<u64> {
         .map(|d| d.available_space())
 }
 
-fn move_game(from: &Path, to: &Path, rename: bool, progress: impl Fn(u64, u64)) -> Result<Moved, String> {
-    if dir_state(from) != DirState::Ours {
+/// `owned`: a folder Quiver made in its own apps folder (an app the player fills), which has no version file.
+fn move_game(from: &Path, to: &Path, rename: bool, owned: bool, progress: impl Fn(u64, u64)) -> Result<Moved, String> {
+    if dir_state(from) != DirState::Ours && !owned {
         return Err("That game's folder isn't one Quiver installed, so it wasn't moved.".into());
     }
     if dir_state(to) != DirState::Free {
@@ -464,18 +472,36 @@ fn move_game(from: &Path, to: &Path, rename: bool, progress: impl Fn(u64, u64)) 
 /// original goes to the Recycle Bin once the copy is checked. Progress comes as
 /// `bp-move-progress` events.
 #[tauri::command]
-pub async fn bp_move_game(app: AppHandle, id: String, from: String, to: String) -> Result<Moved, String> {
+pub async fn bp_move_game(app: AppHandle, data: tauri::State<'_, super::Data>, id: String, from: String, to: String) -> Result<Moved, String> {
+    // Only a folder right inside Quiver 4's own apps folder counts as Quiver's without a version file.
+    let apps = data.apps();
+    let owned = Path::new(&from).parent().is_some_and(|parent| same_path(&parent.to_string_lossy(), &apps.to_string_lossy()));
     tauri::async_runtime::spawn_blocking(move || {
         // A running game's files are locked: the copy would work but the original couldn't go, leaving two.
         if running(Path::new(&from)) {
             return Err("It's running. Close it, and it'll be moved next time.".into());
         }
-        move_game(Path::new(&from), Path::new(&to), true, |done, total| {
+        move_game(Path::new(&from), Path::new(&to), true, owned, |done, total| {
             let _ = app.emit("bp-move-progress", MoveProgress { id: id.clone(), done, total });
         })
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// A new folder in Quiver 3's games folder for an app the player fills themselves, opened for them.
+/// Never one that's already there with files in it: it could be another app's.
+#[tauri::command]
+pub fn bp_make_folder(games_dir: String, name: String) -> Result<String, String> {
+    let dir = PathBuf::from(games_dir).join(plain_name(&name)?);
+    if dir_state(&dir) != DirState::Free {
+        return Err(format!("There's already a folder named {name} in your Quiver 3 games folder. Choose another name."));
+    }
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    if std::env::var_os("QUIVER_OPENED").is_none() {
+        let _ = open::that_detached(&dir);
+    }
+    Ok(dir.to_string_lossy().into())
 }
 
 /// Whether the desktop has a shortcut with this game's name (as upstream's Desktop shortcut names it).
@@ -507,7 +533,7 @@ mod tests {
     }
 
     fn m(id: Option<&str>, repo: &str) -> V3Match {
-        V3Match { catalog_entry_id: id.map(str::to_string), repository: Some(repo.into()), provider: "github".into() }
+        V3Match { catalog_entry_id: id.map(str::to_string), repository: Some(repo.into()), provider: "github".into(), install_path: None }
     }
 
     #[test]
@@ -617,20 +643,20 @@ mod tests {
         let busy = dir.join("Games").join("Busy");
         fs::create_dir_all(&busy).unwrap();
         fs::write(busy.join("mine.txt"), "").unwrap();
-        assert!(move_game(&from, &busy, true, |_, _| {}).is_err());
+        assert!(move_game(&from, &busy, true, false, |_, _| {}).is_err());
         assert!(from.join("game.exe").is_file(), "nothing moved");
 
         // Copied, as across drives (a rename can't be), then the original goes to the Recycle Bin.
         let to = dir.join("Games").join("Game");
         let steps = std::cell::RefCell::new(Vec::new());
-        move_game(&from, &to, false, |done, total| steps.borrow_mut().push((done, total))).unwrap();
+        move_game(&from, &to, false, false, |done, total| steps.borrow_mut().push((done, total))).unwrap();
         assert_eq!(files(&to).unwrap(), before);
         assert_eq!(steps.borrow().last(), Some(&(4102, 4102)));
         assert!(!dir.join("Games").join(".Game.quiver-moving").exists());
 
         // On one drive, a rename.
         let back = dir.join("apps").join("Again");
-        move_game(&to, &back, true, |_, _| {}).unwrap();
+        move_game(&to, &back, true, false, |_, _| {}).unwrap();
         assert_eq!(files(&back).unwrap(), before);
         assert!(!to.exists());
     }
@@ -641,8 +667,27 @@ mod tests {
         let from = dir.join("Mine");
         fs::create_dir_all(&from).unwrap();
         fs::write(from.join("file"), "").unwrap();
-        assert!(move_game(&from, &dir.join("To"), false, |_, _| {}).is_err());
+        assert!(move_game(&from, &dir.join("To"), false, false, |_, _| {}).is_err());
         assert!(from.join("file").is_file());
+        // A folder Quiver made for the player to fill (the command checks it's in Quiver's own apps folder).
+        move_game(&from, &dir.join("To"), false, true, |_, _| {}).unwrap();
+        assert!(dir.join("To").join("file").is_file());
+    }
+
+    #[test]
+    fn apps_of_the_players_own_match_by_folder() {
+        let mut doc = json!({ "apps": [
+            { "name": "Mine", "folderName": "Mine", "installPath": "E:\\Apps\\Mine\\" },
+            { "name": "Repo", "folderName": "Repo", "installPath": "E:\\Apps\\Mine\\", "repository": "a/b" }
+        ]});
+        let here = V3Match { catalog_entry_id: None, repository: None, provider: "github".into(), install_path: Some("e:/apps/mine".replace('/', "\\")) };
+        let gone = V3Change::Remove { r#match: here.clone(), install_path: "E:\\Apps\\Mine".into() };
+        assert!(apply(&mut doc, &[gone]).unwrap());
+        assert_eq!(doc["apps"].as_array().unwrap().len(), 1, "only the app without a repository");
+        assert_eq!(doc["apps"][0]["name"], "Repo");
+        let back = V3Change::Upsert { r#match: here, install_path: "E:\\Apps\\Mine\\".into(), entry: json!({ "name": "Mine", "folderName": "Mine", "appIconUrl": null }).as_object().unwrap().clone() };
+        assert!(apply(&mut doc, &[back]).unwrap());
+        assert_eq!(doc["apps"][1]["name"], "Mine");
     }
 
     #[test]
@@ -665,7 +710,7 @@ mod tests {
         let mut doc = before.clone();
         let first = &before["apps"][0];
         let existing = V3Change::Upsert {
-            r#match: V3Match { catalog_entry_id: field(first, "catalogEntryId").map(str::to_string), repository: field(first, "repository").map(str::to_string), provider: "github".into() },
+            r#match: V3Match { catalog_entry_id: field(first, "catalogEntryId").map(str::to_string), repository: field(first, "repository").map(str::to_string), provider: "github".into(), install_path: None },
             install_path: "E:/Moved/Here/".into(),
             entry: Map::new(),
         };

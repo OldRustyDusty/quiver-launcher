@@ -8,18 +8,22 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { Entry } from "@quiverlauncher/api";
 import { listen } from "@tauri-apps/api/event";
 import { native } from "../../native";
-import { setNewInstallDir, useLauncher, type Install } from "../../store";
+import { customEntry } from "../../custom";
+import { setNewInstallDir, setNewLocalFolder, useLauncher, type Install } from "../../store";
 import { bpNative } from "../bpNative";
 import type { SidecarStore } from "../data/sidecar";
 import {
   findV3,
   isCustomId,
   matchFor,
+  ownFolder,
   plan as makePlan,
+  planIsEmpty,
   repoKey,
   repoOf,
   samePath,
   v3EntryFor,
+  v3ManualEntry,
   v3Path,
   type Plan,
   type Repos,
@@ -146,6 +150,12 @@ export function useShare(sidecar: SidecarStore | null): Share {
     return { kind: "upsert", match: matchFor(id, repo), installPath: v3Path(dir, sep), entry: v3EntryFor(entry, repo, folder, isCustomId(id)) };
   }
 
+  /** The change that lists a folder you fill in Quiver 3, as a manual app. */
+  function upsertOwn(id: string, dir: string): V3Change {
+    const folder = dir.split(/[\\/]/).filter(Boolean).at(-1) ?? dir;
+    return { kind: "upsert", match: { provider: "github", installPath: dir }, installPath: v3Path(dir, sep), entry: v3ManualEntry(name(id), folder) };
+  }
+
   /** Writes changes to Quiver 3's list now, or keeps them for when it's closed. Resolves to the backup made, if any. */
   async function write(changes: V3Change[]): Promise<{ backup: string | null; waiting: boolean }> {
     const all = [...((sidecar?.snapshot.v3Share?.pending ?? []) as V3Change[]), ...changes];
@@ -162,13 +172,16 @@ export function useShare(sidecar: SidecarStore | null): Share {
   }
 
   /**
-   * The catalog entry for a game Quiver 3 has. Custom apps (not in the catalog) aren't brought over here:
-   * upstream adds those only by installing them, which would download a game that's already there.
+   * The catalog entry for a game Quiver 3 has. A custom app (not in the catalog) gets the entry upstream's import
+   * gives one (customEntry), without installing it: its files are already there.
    */
-  async function entryFor(id: string): Promise<Entry | null> {
+  async function entryFor(id: string, v3: { name: string; repository: string | null; provider: string }): Promise<Entry | null> {
     const L = latest.current;
     if (L.catalog[id]) return L.catalog[id];
-    if (isCustomId(id)) return null;
+    if (isCustomId(id)) {
+      if (!v3.repository) return null;
+      return customEntry(id, { provider: v3.provider === "gitlab" ? "gitlab" : "github", repository: v3.repository, name: v3.name });
+    }
     await repos();
     const slug = slugs.get(id);
     return slug ? ((await L.client.app(slug).catch(() => null))?.entry ?? null) : null;
@@ -182,11 +195,13 @@ export function useShare(sidecar: SidecarStore | null): Share {
     const os = L().config.os as "windows" | "linux" | "macos";
     const changes: V3Change[] = [];
     const moved: string[] = [];
+    const added: string[] = [];
     const remade: string[] = [];
     const problems: string[] = [];
-    const steps = p.bringOver.length + p.versions.length + p.addToV3.length + p.duplicates.length + p.moves.length;
+    const steps =
+      p.bringOver.length + p.bringOverLocal.length + p.versions.length + p.addToV3.length + p.addLocalToV3.length + p.duplicates.length + p.moves.length + p.localMoves.length;
     let step = 0;
-    const title = auto ? "Moving games into your Quiver 3 games folder" : "Setting up one games folder";
+    const title = auto ? "Matching your Quiver 3 games folder" : "Setting up one games folder";
     const show = (current: string, done = 0, total = 0) => setDialog({ kind: "working", title, step, steps, current, done, total });
     const off = listen<{ id: string; done: number; total: number }>("bp-move-progress", ({ payload }) =>
       setDialog((d) => (d?.kind === "working" ? { ...d, done: payload.done, total: payload.total } : d)),
@@ -204,21 +219,27 @@ export function useShare(sidecar: SidecarStore | null): Share {
       for (const b of p.bringOver) {
         step++;
         show(b.v3.name);
-        const entry = await entryFor(b.id).catch(() => null);
+        const entry = await entryFor(b.id, b.v3).catch(() => null);
         if (!entry) {
-          problems.push(
-            isCustomId(b.id)
-              ? `${b.v3.name} isn't in the catalog, so it stays in Quiver 3 only. To add it here, use Add a game in desktop mode with its repository.`
-              : `${b.v3.name} couldn't be found online, so it stays in Quiver 3 only for now.`,
-          );
+          problems.push(`${b.v3.name} couldn't be found online, so it stays in Quiver 3 only for now.`);
           continue;
         }
         L().cache([entry]);
         L().add(entry);
+        added.push(b.v3.name);
         if (b.v3.dir && b.v3.version) {
-          L().adopt(entry.id, { dir: b.v3.dir, version: b.v3.version, folder: entry.launcher.folderName || entry.slug, executables: entry.launcher.preferredExecutables?.[os] ?? [] });
+          L().adopt(entry.id, { dir: b.v3.dir, version: b.v3.version, folder: b.v3.folderName || entry.launcher.folderName || entry.slug, executables: entry.launcher.preferredExecutables?.[os] ?? [] });
           await bpNative.writeVersions(b.v3.dir, b.v3.version).catch(() => {});
         }
+      }
+      for (const b of p.bringOverLocal) {
+        step++;
+        show(b.v3.name);
+        if (!b.v3.dir) continue;
+        // Quiver 3's manual app: a folder you fill, where it is.
+        await L()
+          .addLocalApp({ kind: "folder", name: b.v3.name, dir: b.v3.dir })
+          .then(() => added.push(b.v3.name), (e) => problems.push(`${b.v3.name}: ${String(e)}`));
       }
       for (const v of p.versions) {
         step++;
@@ -229,6 +250,27 @@ export function useShare(sidecar: SidecarStore | null): Share {
       for (const a of p.addToV3) {
         step++;
         await add(a.id, a.dir);
+      }
+      for (const a of p.addLocalToV3) {
+        step++;
+        changes.push(upsertOwn(a.id, a.dir));
+      }
+      for (const m of p.localMoves) {
+        step++;
+        show(name(m.id));
+        try {
+          const [to, there] = await bpNative.gameDir(found.gamesDir, m.folder);
+          if (there !== "free") {
+            problems.push(`${name(m.id)} wasn't moved: ${to} already has files in it.`);
+            continue;
+          }
+          await bpNative.moveGame(m.id, m.from, to);
+          place(m.id, { dir: to });
+          changes.push(upsertOwn(m.id, to));
+          moved.push(name(m.id));
+        } catch (e) {
+          problems.push(`${name(m.id)} wasn't moved: ${String(e)}`);
+        }
       }
       for (const d of p.duplicates) {
         step++;
@@ -296,17 +338,18 @@ export function useShare(sidecar: SidecarStore | null): Share {
 
       const lines: string[] = [];
       if (!auto) lines.push(`Games you get now install to ${found.gamesDir}, and show up in Quiver 3 too.`);
+      if (added.length) lines.push(`Added from Quiver 3: ${some(added)}.`);
       if (moved.length) lines.push(`Moved ${moved.length === 1 ? "1 game" : `${moved.length} games`}: ${some(moved)}.`);
       if (remade.length) lines.push(`Desktop shortcuts made again: ${some(remade)}.`);
       if (moved.length) lines.push("If you added any of these to Steam, add them again from their page in desktop mode.");
       if (waiting) lines.push("Quiver 3 was opened, so its list will be updated when it's closed.");
       if (p.notInCatalog.length) lines.push(`Staying in Quiver 3 only: ${some(p.notInCatalog)}.`);
       lines.push(...problems);
-      // On its own at start: only news when games moved; what couldn't move (running, a folder in the way) waits for next time.
-      if (auto && !moved.length) {
+      // On its own at start: only news when games came or moved; what couldn't (running, a folder in the way) waits for next time.
+      if (auto && !moved.length && !added.length) {
         for (const problem of problems) void native.logError(`bigpicture v3 share: ${problem}`).catch(() => {});
         setDialog(null);
-      } else setDialog({ kind: "done", title: auto ? "Games moved" : "One games folder", lines });
+      } else setDialog({ kind: "done", title: auto ? (added.length && !moved.length ? "Added from Quiver 3" : "Games folder updated") : "One games folder", lines });
     } finally {
       void off.then((stop) => stop());
       working.current = false;
@@ -365,7 +408,11 @@ export function useShare(sidecar: SidecarStore | null): Share {
       if (there === "v3" && theirs?.dir && samePath(theirs.dir, dir, windows)) return dir;
       return undefined;
     });
-    return () => setNewInstallDir(null);
+    setNewLocalFolder((folder) => bpNative.makeFolder((libRef.current ?? lib).gamesDir, folder), lib.gamesDir);
+    return () => {
+      setNewInstallDir(null);
+      setNewLocalFolder(null);
+    };
   }, [on, lib]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // While on: what happens to installs from here on, Quiver 3 hears about.
@@ -381,6 +428,12 @@ export function useShare(sidecar: SidecarStore | null): Share {
       let strays = false;
       for (const id of new Set([...Object.keys(prev), ...Object.keys(now)])) {
         const [was, is] = [prev[id], now[id]];
+        if (ownFolder(is) || ownFolder(was)) {
+          if (is && ownFolder(is) && is.dir && (!was || was.dir !== is.dir)) changes.push(upsertOwn(id, is.dir));
+          else if (is && ownFolder(is) && !is.dir) strays = true;
+          else if (!is && was?.dir) changes.push({ kind: "remove", match: { provider: "github", installPath: was.dir }, installPath: was.dir });
+          continue;
+        }
         if (managed(is)) {
           if (!is.dir) strays = true;
           else if (!was || was.version !== is.version || was.dir !== is.dir) {
@@ -398,17 +451,18 @@ export function useShare(sidecar: SidecarStore | null): Share {
     })();
   }, [launcher.installs, on]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Games in Quiver 4's own folder (the official app's installs, or one that couldn't go to Quiver 3's): moved over, at start and when one appears.
+  // At start, and when a game turns up in Quiver 4's own folder: the same as turning it on, quietly.
+  // Games installed or added in Quiver 3 since come over; games in Quiver 4's own folder (the official app's
+  // installs, or one that couldn't go to Quiver 3's) move over. Once per start, then on each stray.
+  const checked = useRef(-1);
   useEffect(() => {
-    if (!on || !lib || working.current || dialog) return;
-    const strays = launcher.library.some((i) => managed(launcher.installs[i.id]) && !launcher.installs[i.id].dir && !busy(i.id));
-    if (!strays) return;
+    if (!on || !lib || working.current || dialog || checked.current === sweep) return;
+    checked.current = sweep;
     void (async () => {
       const p = await planNow(lib).catch(() => null);
-      if (!p || (!p.moves.length && !p.duplicates.length)) return;
-      await carryOut({ ...p, bringOver: [], versions: [], addToV3: [], notInCatalog: [] }, lib, true);
+      if (p && !planIsEmpty(p)) await carryOut({ ...p, notInCatalog: [] }, lib, true);
     })();
-  }, [on, lib, sweep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [on, lib, sweep, dialog]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Changes waiting for Quiver 3 to close: tried now and then.
   const waiting = (state?.pending?.length ?? 0) > 0;

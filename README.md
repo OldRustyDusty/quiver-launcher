@@ -162,8 +162,11 @@ keep everything in one place instead:
   until next time.
 - **Games you put in custom folders in Quiver 3 stay exactly where they are.**
 - **A game installed by both launchers** keeps its newer copy, and the other goes to the Recycle Bin.
-- **Games only Quiver 3 has** are added to your library where they are. Custom apps that aren't in the Quiver catalog stay in
-  Quiver 3 only; add them in desktop mode with their repository.
+- **Games only Quiver 3 has** are added to your library where they are, nothing downloaded: catalog games, apps from a
+  GitHub or GitLab repository, and Quiver 3's manual apps (folders you fill). This happens when you turn it on, and again each
+  time Big Quiver starts, so games you add in Quiver 3 later show up too, with a short note.
+- **Folders you fill** (Add an app → *A folder you fill yourself*) are made in your Quiver 3 games folder, and listed in
+  Quiver 3 as manual apps. Ones you made before are moved there.
 - **Updates and uninstalls** in Big Quiver show up in Quiver 3 too, with the right version numbers.
 - **Games the official Quiver Launcher 4 installs** (once it's out) land in its own folder, because it doesn't know this setting.
   Big Quiver moves them over the next time it starts.
@@ -178,6 +181,10 @@ is open, it asks you to close it, or keeps the change until you do. It takes the
 in Quiver 3's own `Backups\apps` folder before every change. Turning the setting off asks first, and doesn't undo anything:
 games already in Quiver 3's folder stay there, and new games go to Big Quiver's own folder again. That first backup restores
 Quiver 3's list exactly as it was, if you ever need it.
+
+**Adding your own games:** Big Quiver's Add an app offers *From GitHub or GitLab* and *A folder you fill yourself*, the same
+two ways Quiver 3 has. Quiver 4's third option, *A program on this computer* (start an `.exe` from wherever it is), is hidden
+in Big Quiver for now, because Quiver 3 has nothing like it. Programs added that way before still work.
 
 **Shortcuts:** desktop shortcuts to moved games are made again automatically. Steam shortcuts to them stop working; add those
 games to Steam again from their page in desktop mode.

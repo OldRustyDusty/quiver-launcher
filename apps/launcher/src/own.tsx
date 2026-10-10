@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, FolderPlus, GitBranch, MonitorPlay } from "lucide-react";
 import type { Entry, GameMatch } from "@quiverlauncher/api";
 import { Artwork, fullDate } from "@quiverlauncher/ui";
-import { useLauncher, type GameArt, type RepositoryPreview } from "./store";
+import { useLauncher, type GameArt, type RepositoryPreview, localFolderHome } from "./store";
 import { native } from "./native";
 import { assetFilterFor } from "./assets";
 
@@ -51,11 +51,15 @@ function Choose({ onPick }: { onPick: (step: Step) => void }) {
       <h2>Add an app</h2>
       <p className="muted">For an app the catalog doesn't have. It's yours alone; to add one for everyone, suggest it on quiverlauncher.com.</p>
       {option("repository", <GitBranch size={22} />, "From GitHub or GitLab", "Installs from the repository's releases, and updates like other apps.")}
-      {option("program", <MonitorPlay size={22} />, "A program on this computer", "Starts it where it is. Nothing is downloaded, moved or deleted.")}
+      {/* Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): "A program on this computer" is left out, for parity with Quiver 3 until Quiver 4 is released. */}
+      {SHOW_PROGRAM && option("program", <MonitorPlay size={22} />, "A program on this computer", "Starts it where it is. Nothing is downloaded, moved or deleted.")}
       {option("folder", <FolderPlus size={22} />, "A folder you fill yourself", "Makes a folder in your apps folder to put the app in.")}
     </>
   );
 }
+
+/** Big Picture (fork): see above. */
+const SHOW_PROGRAM = false;
 
 function Heading({ title, onBack }: { title: string; onBack: () => void }) {
   return (
@@ -227,7 +231,7 @@ function FromFolder({ onBack, onDone }: Done) {
     >
       <Heading title="A folder you fill yourself" onBack={onBack} />
       <p className="muted">
-        Quiver makes a folder for it in {config.appsDir} and opens it. Put the app's files there; Play starts the first program in it.
+        Quiver makes a folder for it in {localFolderHome() ?? config.appsDir} and opens it. Put the app's files there; Play starts the first program in it.
       </p>
       <label className="field">
         Name

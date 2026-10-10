@@ -184,8 +184,17 @@ handled upstream. "Skip this version" is stored in the sidecar, as in the spec.
 `src-tauri/src/bigpicture/v3share.rs`. It was checked in the browser preview (`?share`) and by unit tests, including a round trip
 on a copy of the user's real `apps.json`. It hasn't run on real game files yet. Where the build differs from the plan below:
 
-* **Custom apps only Quiver 3 has aren't brought over.** Upstream adds a custom app only by installing it, which would download a
-  game that's already there. They're listed, with a pointer to desktop mode's Add a game.
+* **Custom apps only Quiver 3 has** come over as upstream's import brings them (`customEntry`, nothing downloaded). (First built
+  without them; added the same day.)
+* **Added 2026-10-10 (the user's scenarios A, B, C):**
+  * **A.** A folder you fill made in Big Quiver goes into Quiver 3's games folder and is listed in Quiver 3 as a manual app.
+    Earlier ones in Quiver 4's apps folder move there.
+  * **B.** Quiver 3's manual apps come into Big Quiver as folders you fill, where they are.
+  * **C.** At every start (not only when it's turned on), whatever Quiver 3 has that Big Quiver doesn't comes over, with a short
+    note.
+  * Quiver 4's *A program on this computer* is hidden in Add an app, for parity with Quiver 3; it's to be reconsidered once
+    Quiver 4 is released. Programs added that way stay Big Quiver's only: Quiver 3 lists apps by folder, so a program loose in a
+    shared folder would make Quiver 3's Delete take the whole folder.
 * **Backups:** each write first saves `apps.json` into Quiver 3's own `Backups/apps` (SHA-256 names, as Quiver 3 names them).
   The first backup's path is kept in `bigpicture.json` (`v3Share.backup`).
 * **Steam shortcuts** aren't detected. The result lists moved games and says to add them to Steam again. Desktop shortcuts with

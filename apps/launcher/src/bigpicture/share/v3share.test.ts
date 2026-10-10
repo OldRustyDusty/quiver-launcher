@@ -43,7 +43,8 @@ const installs: Record<string, Install> = {
   "k-zelda": install({ version: "v1.2.0", folder: "Zelda64" }),
   "k-dk": install({ folder: "DK64" }),
   "k-new": install({ folder: "NewGame" }),
-  "local:mine": install({ local: true, folder: "Mine" }),
+  // A program elsewhere on the computer: Big Quiver's own, never moved or listed in Quiver 3.
+  "local:mine": install({ local: true, program: "D:\\Mine\\mine.exe", dir: "D:\\Mine\\", folder: "mine.exe" }),
 };
 
 const base = {
@@ -86,11 +87,34 @@ describe("plan", () => {
 
   test("games only Quiver 3 installed come over, matched by catalog id or repository; custom apps by their repository", () => {
     expect(p.bringOver.map((b) => b.id)).toEqual(["k-mario", "github:me/homebrew"]);
-    expect(p.notInCatalog).toEqual(["Manual"]);
   });
 
-  test("the player's own files are never touched", () => {
-    const all = [...p.shared, ...p.moves.map((m) => m.id), ...p.duplicates.map((d) => d.id), ...p.addToV3.map((a) => a.id)];
+  test("Quiver 3's manual apps (no repository) come over as folders you fill, where they are", () => {
+    expect(p.bringOverLocal.map((b) => b.v3.dir)).toEqual(["E:\\QuiverLauncher\\Apps\\Manual"]);
+    expect(p.notInCatalog).toEqual([]);
+  });
+
+  test("folders you fill: moved from Quiver 4's folder, listed when elsewhere, shared when Quiver 3 has them; programs stay put", () => {
+    const own = plan({
+      ...base,
+      libraryIds: [...base.libraryIds, "local:new", "local:out", "local:manual", "local:prog"],
+      installs: {
+        ...installs,
+        "local:new": install({ local: true, folder: "Homebrew Port", version: "" }),
+        "local:out": install({ local: true, folder: "Elsewhere", dir: "D:\\Mine\\Elsewhere", version: "" }),
+        "local:manual": install({ local: true, folder: "Manual", dir: "e:\\quiverlauncher\\apps\\manual", version: "" }),
+        "local:prog": install({ local: true, program: "D:\\Tools\\tool.exe", dir: "D:\\Tools\\", folder: "tool.exe", version: "" }),
+      },
+    });
+    expect(own.localMoves).toEqual([{ id: "local:new", from: `${base.appsDir}\\Homebrew Port`, folder: "Homebrew Port" }]);
+    expect(own.addLocalToV3).toEqual([{ id: "local:out", dir: "D:\\Mine\\Elsewhere" }]);
+    expect(own.shared).toContain("local:manual");
+    expect(own.bringOverLocal).toEqual([]);
+    expect([...own.localMoves, ...own.addLocalToV3].map((x) => x.id)).not.toContain("local:prog");
+  });
+
+  test("a program of the player's own is never touched", () => {
+    const all = [...p.shared, ...p.moves.map((m) => m.id), ...p.duplicates.map((d) => d.id), ...p.addToV3.map((a) => a.id), ...p.localMoves.map((m) => m.id), ...p.addLocalToV3.map((a) => a.id)];
     expect(all).not.toContain("local:mine");
   });
 
@@ -110,9 +134,8 @@ describe("plan", () => {
       "1 game is already in Quiver 3's folders",
       "2 games to move into E:\\QuiverLauncher\\Apps",
       "1 game is installed twice: the newer copy is kept, and the other goes to the Recycle Bin",
-      "2 games from Quiver 3 to add to your library",
+      "3 games from Quiver 3 to add to your library",
       "1 version number to bring up to date",
-      "1 Quiver 3 game isn't in the catalog, so it stays in Quiver 3 only",
     ]);
     const empty = plan({ ...base, v3: { ...library, entries: [] }, libraryIds: [], installs: {} });
     expect(planIsEmpty(empty)).toBe(true);

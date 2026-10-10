@@ -9,7 +9,8 @@
  * - ?desktop starts in desktop mode instead of Big Picture; ?debug shows the input overlay;
  *   ?failLaunch makes every launch fail (error notices); ?empty&reset starts with an empty library,
  *   and &v3 adds a Quiver 3 library to bring over. ?share adds a Quiver 3 library for "Use the same
- *   games folder as Quiver 3" (?share=open: Quiver 3 is open for its first ten seconds).
+ *   games folder as Quiver 3" (?share=open: Quiver 3 is open for its first ten seconds; ?share=later: it has
+ *   two games added since, for the pick-up at start).
  * - Controllers: bpPad("South") in the console presses and releases a control
  *   (gilrs names); bpPad("DPadRight", true) holds it, bpPad("DPadRight", false)
  *   lets go. The last argument is the pad's family ("playstation" for its glyphs).
@@ -87,6 +88,13 @@ function v3Library() {
     ...(twice ? [{ name: catalog[twice]?.name ?? twice, folderName: installs[twice].folder, repository: null, provider: "github", catalogEntryId: twice, dir: `${gamesDir}\\${installs[twice].folder}`, version: "v0.0.1" }] : []),
     { name: "Homebrew", folderName: "Homebrew", repository: "someone/homebrew", provider: "github", catalogEntryId: null, dir: `${gamesDir}\\Homebrew`, version: "v1" },
     { name: "Manual", folderName: "Manual", repository: null, provider: "github", catalogEntryId: null, dir: `${gamesDir}\\Manual`, version: null },
+    // ?share=later: added in Quiver 3 since (a custom app and a manual app), for the pick-up at start.
+    ...(params.get("share") === "later"
+      ? [
+          { name: "Late Custom", folderName: "LateCustom", repository: "someone/late-custom", provider: "github", catalogEntryId: null, dir: `${gamesDir}\\LateCustom`, version: "v2" },
+          { name: "Late Manual", folderName: "LateManual", repository: null, provider: "github", catalogEntryId: null, dir: `${gamesDir}\\LateManual`, version: null },
+        ]
+      : []),
   ];
   return { root: "E:\\QuiverLauncher", gamesDir, running: params.get("share") === "open" && Date.now() - sharedSince < 10_000, entries };
 }
@@ -170,6 +178,10 @@ mockIPC(
         return "E:\\QuiverLauncher\\Backups\\apps\\PREVIEW.json";
       case "bp_has_desktop_shortcut":
         return false;
+      case "bp_make_folder":
+        return `${a.gamesDir}\\${a.name}`;
+      case "create_app_folder":
+        return a.name;
       default:
         return null;
     }

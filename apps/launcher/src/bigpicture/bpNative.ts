@@ -32,6 +32,8 @@ export const bpNative = {
   /** Moves a game's folder; "bp-move-progress" events say how far. The original goes to the Recycle Bin. */
   moveGame: (id: string, from: string, to: string) => invoke<{ trashed: boolean }>("bp_move_game", { id, from, to }),
   hasDesktopShortcut: (name: string) => invoke<boolean>("bp_has_desktop_shortcut", { name }),
+  /** A new folder for an app you fill yourself, in Quiver 3's games folder, opened for you; resolves to its path. */
+  makeFolder: (gamesDir: string, name: string) => invoke<string>("bp_make_folder", { gamesDir, name }),
 };
 
 export type DirState = "free" | "ours" | "v3" | "other";

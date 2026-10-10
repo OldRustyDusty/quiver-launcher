@@ -9,7 +9,7 @@
 | Import a Quiver 3 library from elsewhere | `$env:QUIVER_V3_DATA="E:\QuiverLauncher"` before the first start of v4 |
 | Input overlay | `$env:QUIVER_BP_DEBUG="1"` shows controller events and whether they get through |
 | DevTools probe | `$env:QUIVER_DEBUG_PORT="9222"` (debug builds) opens WebView2's remote debugging port |
-| Browser preview, no Tauri | `pnpm --filter @quiver/launcher dev`, then open `http://localhost:1420/bigpicture-preview.html`. `?reset`, `?apps=250`, `?desktop`, `?debug`, `?failLaunch`, `?share` (a Quiver 3 library for "Use the same games folder as Quiver 3"; `?share=open` keeps Quiver 3 open for 10 s); `bpPad("South")` in the console presses a control |
+| Browser preview, no Tauri | `pnpm --filter @quiver/launcher dev`, then open `http://localhost:1420/bigpicture-preview.html`. `?reset`, `?apps=250`, `?desktop`, `?debug`, `?failLaunch`, `?share` (a Quiver 3 library for "Use the same games folder as Quiver 3"; `?share=open` keeps Quiver 3 open for 10 s, `?share=later` adds two games "added in Quiver 3 since"); `bpPad("South")` in the console presses a control |
 | Release exe | `pnpm --filter @quiver/launcher tauri build --no-bundle` → `apps/launcher/src-tauri/target/release/quiver-launcher.exe` |
 | Automated checks | `pnpm typecheck`, `pnpm test` (Big Picture tests are in `src/bigpicture/**/*.test.ts`), `cargo test --manifest-path apps/launcher/src-tauri/Cargo.toml` |
 

@@ -21,7 +21,8 @@ export type V3Entry = {
 
 export type V3Library = { root: string; gamesDir: string; running: boolean; entries: V3Entry[] };
 
-export type V3Match = { catalogEntryId?: string; repository?: string; provider: string };
+/** A game by the catalog's id or repository; an app of the player's own (no repository) by its folder. */
+export type V3Match = { catalogEntryId?: string; repository?: string; provider: string; installPath?: string };
 export type V3Change =
   | { kind: "upsert"; match: V3Match; installPath: string; entry: Record<string, unknown> }
   | { kind: "remove"; match: V3Match; installPath: string };
@@ -87,6 +88,8 @@ export function compareVersions(a: string, b: string) {
 
 /** Installs Big Quiver can move or share: not the player's own files or programs. */
 const managed = (install: Install) => !install.local && !install.program;
+/** A folder the player fills themselves: Quiver 3's "manual app". */
+export const ownFolder = (install: Install | undefined): boolean => Boolean(install?.local && !install.program);
 
 export type Plan = {
   /** Already in a folder Quiver 3 lists for them. */
@@ -101,6 +104,12 @@ export type Plan = {
   bringOver: { id: string; v3: V3Entry }[];
   /** Installed by Quiver 4 outside its apps folder, but missing from Quiver 3's list. */
   addToV3: { id: string; dir: string }[];
+  /** Folders you fill, in Quiver 4's own apps folder: moving to Quiver 3's games folder. */
+  localMoves: { id: string; from: string; folder: string }[];
+  /** Folders you fill, outside Quiver 4's apps folder, missing from Quiver 3's list (as manual apps). */
+  addLocalToV3: { id: string; dir: string }[];
+  /** Quiver 3's manual apps (no repository): into the library as folders you fill, where they are. */
+  bringOverLocal: { v3: V3Entry }[];
   /** Installed by Quiver 3, with no repository to find it by. */
   notInCatalog: string[];
   /** Downloading or updating now: left for later. */
@@ -121,12 +130,27 @@ export type PlanInput = {
 };
 
 export function plan({ v3, libraryIds, installs, appsDir, repos, busy, sep, windows = true, known = new Set() }: PlanInput): Plan {
-  const out: Plan = { shared: [], versions: [], moves: [], duplicates: [], bringOver: [], addToV3: [], notInCatalog: [], busy: [] };
+  const out: Plan = { shared: [], versions: [], moves: [], duplicates: [], bringOver: [], addToV3: [], localMoves: [], addLocalToV3: [], bringOverLocal: [], notInCatalog: [], busy: [] };
   const claimed = new Set<V3Entry>();
   const inLibrary = new Set(libraryIds);
 
+  const byDir = (dir: string) => v3.entries.find((e) => !e.repository && e.dir && samePath(e.dir, dir, windows));
   for (const id of libraryIds) {
     const install = installs[id];
+    if (install?.local) {
+      // The player's own. A folder you fill is shared like a game; a program elsewhere stays Big Quiver's,
+      // but a Quiver 3 manual app in its folder is the same app, not a new one to bring over.
+      const dir = install.dir ?? (install.program ? undefined : join(appsDir, install.folder, sep));
+      const theirs = dir ? byDir(dir) : undefined;
+      if (theirs) {
+        claimed.add(theirs);
+        if (ownFolder(install)) out.shared.push(id);
+      } else if (ownFolder(install)) {
+        if (install.dir) out.addLocalToV3.push({ id, dir: install.dir });
+        else out.localMoves.push({ id, from: join(appsDir, install.folder, sep), folder: install.folder });
+      }
+      continue;
+    }
     if (!install || !managed(install)) continue;
     const repo = repoOf(id, repos);
     const theirs = findV3(v3.entries, id, repo);
@@ -153,6 +177,10 @@ export function plan({ v3, libraryIds, installs, appsDir, repos, busy, sep, wind
 
   for (const entry of v3.entries) {
     if (claimed.has(entry) || !entry.dir) continue;
+    if (!entry.repository) {
+      out.bringOverLocal.push({ v3: entry });
+      continue;
+    }
     const id = idForV3(entry, repos, known);
     if (!id) out.notInCatalog.push(entry.name);
     else if (!(inLibrary.has(id) && installs[id])) out.bringOver.push({ id, v3: entry });
@@ -162,7 +190,17 @@ export function plan({ v3, libraryIds, installs, appsDir, repos, busy, sep, wind
 
 /** Nothing to do but turn it on. */
 export const planIsEmpty = (p: Plan) =>
-  !p.versions.length && !p.moves.length && !p.duplicates.length && !p.bringOver.length && !p.addToV3.length;
+  !p.versions.length &&
+  !p.moves.length &&
+  !p.duplicates.length &&
+  !p.bringOver.length &&
+  !p.addToV3.length &&
+  !p.localMoves.length &&
+  !p.addLocalToV3.length &&
+  !p.bringOverLocal.length;
+
+/** Quiver 3's entry for a folder you fill: a manual app, as Quiver 3 writes one (no repository, no versions). */
+export const v3ManualEntry = (name: string, folder: string): Record<string, unknown> => ({ name, folderName: folder, appIconUrl: null });
 
 /**
  * A new entry for Quiver 3's apps.json, as Quiver 3 writes one (SerializeApp on
@@ -199,10 +237,13 @@ export function previewLines(p: Plan, gamesDir: string): string[] {
   const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
   const lines: string[] = [];
   if (p.shared.length) lines.push(`${n(p.shared.length, "game is", "games are")} already in Quiver 3's folders`);
-  if (p.moves.length) lines.push(`${n(p.moves.length, "game", "games")} to move into ${gamesDir}`);
+  const moving = p.moves.length + p.localMoves.length;
+  if (moving) lines.push(`${n(moving, "game", "games")} to move into ${gamesDir}`);
   if (p.duplicates.length) lines.push(`${n(p.duplicates.length, "game is", "games are")} installed twice: the newer copy is kept, and the other goes to the Recycle Bin`);
-  if (p.bringOver.length) lines.push(`${n(p.bringOver.length, "game", "games")} from Quiver 3 to add to your library`);
-  if (p.addToV3.length) lines.push(`${n(p.addToV3.length, "game", "games")} to add to Quiver 3's list`);
+  const coming = p.bringOver.length + p.bringOverLocal.length;
+  if (coming) lines.push(`${n(coming, "game", "games")} from Quiver 3 to add to your library`);
+  const listing = p.addToV3.length + p.addLocalToV3.length;
+  if (listing) lines.push(`${n(listing, "game", "games")} to add to Quiver 3's list`);
   if (p.versions.length) lines.push(`${n(p.versions.length, "version number", "version numbers")} to bring up to date`);
   if (p.notInCatalog.length) lines.push(`${n(p.notInCatalog.length, "Quiver 3 game isn't", "Quiver 3 games aren't")} in the catalog, so ${p.notInCatalog.length === 1 ? "it stays" : "they stay"} in Quiver 3 only`);
   if (p.busy.length) lines.push(`${n(p.busy.length, "game is", "games are")} downloading, and will follow when ${p.busy.length === 1 ? "it's" : "they're"} done`);
