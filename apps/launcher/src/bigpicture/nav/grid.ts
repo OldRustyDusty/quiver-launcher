@@ -32,37 +32,4 @@ export class GridNavigator {
     this.index = next;
     return { moved: true, index: next };
   }
-
-  /** A screen's worth of rows up or down (LT / RT on a console tab), staying in the column where it can. */
-  page(direction: 1 | -1, rows: number): number {
-    if (!this.count) return this.index;
-    const target = this.index + direction * Math.max(1, rows) * this.columns;
-    this.index = Math.min(Math.max(target, this.index % this.columns), this.count - 1);
-    return this.index;
-  }
-}
-
-/** The first letter a title sorts under: a digit or symbol is "#". */
-export const letterOf = (title: string) => {
-  const c = title.trim().charAt(0).toUpperCase();
-  return c >= "A" && c <= "Z" ? c : "#";
-};
-
-/** On All sorted by name (LT / RT): the first tile of the next or previous letter; the same index at either end. */
-export function jumpLetter(titles: readonly string[], index: number, direction: 1 | -1): number {
-  if (!titles.length) return index;
-  const current = letterOf(titles[index]);
-  if (direction === 1) {
-    const next = titles.findIndex((t, i) => i > index && letterOf(t) !== current);
-    return next < 0 ? index : next;
-  }
-  // Back: to the start of this letter, or when already there, to the start of the one before.
-  let start = index;
-  while (start > 0 && letterOf(titles[start - 1]) === current) start--;
-  if (start < index) return start;
-  if (start === 0) return index;
-  const previous = letterOf(titles[start - 1]);
-  let p = start - 1;
-  while (p > 0 && letterOf(titles[p - 1]) === previous) p--;
-  return p;
 }

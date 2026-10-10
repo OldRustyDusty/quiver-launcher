@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useBp } from "../context";
 import { isInstalled, type BpApp } from "../bridge";
 import { resolveConsole } from "../consoles/resolve";
-import { buildTabs, keepTab } from "../consoles/tabs";
+import { buildTabs, cycleTab, keepTab } from "../consoles/tabs";
 import type { InputAction } from "../input/actions";
 import type { AllSort } from "../data/sidecar";
 import { TabStrip } from "./TabStrip";
@@ -56,15 +56,27 @@ export function Shell() {
   const [direction, setDirection] = useState<1 | -1>(1);
   const [overlay, setOverlay] = useState<Overlay>(null);
 
+  /** Shows a tab, sliding the page in from the side it's on. */
+  const go = (id: string) => {
+    if (id === tab.id) return;
+    setDirection(tabs.findIndex((t) => t.id === id) < tabs.findIndex((t) => t.id === tab.id) ? -1 : 1);
+    setSelectedId(id);
+  };
+  /** LB / RB: the next or previous tab. */
   const step = (by: 1 | -1) => {
     const i = tabs.findIndex((t) => t.id === tab.id);
-    setDirection(by);
-    setSelectedId(tabs[Math.min(tabs.length - 1, Math.max(0, i + by))].id);
+    go(tabs[Math.min(tabs.length - 1, Math.max(0, i + by))].id);
   };
+  /** The library tab (Home, All or a console) last shown, to come back to from Discover and Downloads. */
+  const library = useRef(tabs[0].id);
+  if (tab.kind !== "discover" && tab.kind !== "downloads") library.current = tab.id;
+  const cycle = (by: 1 | -1) => go(cycleTab(tabs, tab.id, library.current, by));
   /** Actions every tab's view leaves to the frame. */
   const global = (action: InputAction) => {
     if (action === "tabPrev") step(-1);
     else if (action === "tabNext") step(1);
+    else if (action === "pagePrev") cycle(-1);
+    else if (action === "pageNext") cycle(1);
     else if (action === "menu") setOverlay({ kind: "menu" });
     else if (action === "search") return true; // Search comes with the on-screen keyboard (S11).
     else return false;
@@ -88,10 +100,7 @@ export function Shell() {
       <TabStrip
         tabs={tabs}
         selected={tab.id}
-        onSelect={(id) => {
-          setDirection(tabs.findIndex((t) => t.id === id) < tabs.findIndex((t) => t.id === tab.id) ? -1 : 1);
-          setSelectedId(id);
-        }}
+        onSelect={go}
       />
       <main className="bp-content">
         <div className={`bp-page${direction < 0 ? " from-left" : ""}`} key={tab.id}>
@@ -110,7 +119,6 @@ export function Shell() {
               <GridTab
                 tabId={tab.id}
                 apps={apps}
-                letterJump={tab.kind === "all" && settings.allSort === "name"}
                 memory={memory.current}
                 onFocus={setFocused}
                 onGlobal={global}

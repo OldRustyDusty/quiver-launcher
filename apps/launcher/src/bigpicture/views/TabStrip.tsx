@@ -84,9 +84,16 @@ export function TabStrip({ tabs, selected, onSelect }: { tabs: Tab[]; selected: 
         ))}
       </div>
       <div className="bp-tabs-end" role="tablist">
+        {/* LT / RT go straight between the library tab, Discover and Downloads. */}
+        <button type="button" className="bp-glyph-button small" aria-label="Library, Discover, Downloads: back" onClick={() => tap("pagePrev")}>
+          <Glyph action="pagePrev" size={22} />
+        </button>
         {end.map((tab) => (
           <TabLabel key={tab.id} tab={tab} selected={tab.id === selected} compact={compact} onSelect={onSelect} />
         ))}
+        <button type="button" className="bp-glyph-button small" aria-label="Library, Discover, Downloads: forward" onClick={() => tap("pageNext")}>
+          <Glyph action="pageNext" size={22} />
+        </button>
       </div>
       <button type="button" className="bp-glyph-button" aria-label="Next tab" onClick={() => tap("tabNext")}>
         <Glyph action="tabNext" />

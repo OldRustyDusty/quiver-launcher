@@ -58,3 +58,13 @@ export function buildTabs(
 export function keepTab(tabs: readonly Tab[], selectedId: string): Tab {
   return tabs.find((t) => t.id === selectedId) ?? tabs.find((t) => t.id === ALL.id)!;
 }
+
+/**
+ * LT / RT: straight between the library tab last shown (Home, All or a console),
+ * Discover and Downloads, round and round. The library tab is All if it has gone.
+ */
+export function cycleTab(tabs: readonly Tab[], currentId: string, libraryId: string, by: 1 | -1): string {
+  const ring = [keepTab(tabs, libraryId).id, DISCOVER.id, "downloads"];
+  const at = Math.max(0, ring.indexOf(currentId));
+  return ring[(at + by + ring.length) % ring.length];
+}

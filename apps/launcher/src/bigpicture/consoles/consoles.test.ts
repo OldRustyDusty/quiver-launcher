@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Console } from "@quiverlauncher/api";
 import { APPS, ConsoleCatalog, OTHER } from "./consoles";
 import { normalizeTag, resolveConsole, type Resolvable } from "./resolve";
-import { ALL, buildTabs, keepTab } from "./tabs";
+import { ALL, buildTabs, cycleTab, keepTab } from "./tabs";
 
 /** The catalog's /facets consoles as of 2026-10-09. */
 const FACETS: Console[] = [
@@ -114,5 +114,25 @@ describe("buildTabs", () => {
     expect(keepTab(after, "console:n64").id).toBe("console:n64");
     expect(keepTab(after, "console:ps1")).toEqual(ALL);
     expect(keepTab(before, "discover").id).toBe("discover");
+  });
+});
+
+describe("cycleTab", () => {
+  const tabs = buildTabs(["n64", "ps1"], catalog, { showHomeTab: true, consoleTabOrder: "manufacturerThenYear" }, 0);
+
+  it("goes from the library tab to Discover, Downloads, and back to it", () => {
+    expect(cycleTab(tabs, "console:n64", "console:n64", 1)).toBe("discover");
+    expect(cycleTab(tabs, "discover", "console:n64", 1)).toBe("downloads");
+    expect(cycleTab(tabs, "downloads", "console:n64", 1)).toBe("console:n64");
+  });
+
+  it("goes the other way round with LT", () => {
+    expect(cycleTab(tabs, "console:ps1", "console:ps1", -1)).toBe("downloads");
+    expect(cycleTab(tabs, "downloads", "console:ps1", -1)).toBe("discover");
+    expect(cycleTab(tabs, "discover", "console:ps1", -1)).toBe("console:ps1");
+  });
+
+  it("comes back to All when the console's tab has gone", () => {
+    expect(cycleTab(tabs, "downloads", "console:gcn", 1)).toBe("all");
   });
 });

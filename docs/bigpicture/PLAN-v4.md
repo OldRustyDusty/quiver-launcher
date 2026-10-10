@@ -67,6 +67,9 @@ apps/launcher/src-tauri/src/bigpicture/
 * Pad key → action (gilrs names): `South`→Accept, `East`→Back, `West`→Secondary, `North`→Details,
   `LeftTrigger`→TabPrev, `RightTrigger`→TabNext (gilrs calls the bumpers LeftTrigger/RightTrigger), `LeftTrigger2`/`RightTrigger2`→PagePrev/Next,
   `Select`→Search, `Start`→Menu, D-pad and `LeftStick*`→directions. `Mode` (Guide/PS) is never mapped.
+* **LT / RT (changed 2026-10-10 at the user's request; replaces spec §5.2's page and letter jumps):** they go straight
+  between the library tab last shown (Home, All or a console), Discover and Downloads, round and round. RT goes forward, LT
+  goes back. LB / RB still step through every tab. Page and letter jumps felt like skipping through games at random.
 * While Big Picture is active, upstream's spatial navigation is suspended (a small exported switch in `spatial.ts`, an upstream touch),
   and Big Picture owns keyboard and pad input. The keyboard map is as in §5.1.
 * RepeatFilter, InputGate and InputRouter are pure TS with fake-clock vitest tests. The timings are as in §5.4.

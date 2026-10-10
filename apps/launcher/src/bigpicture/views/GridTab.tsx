@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefO
 import { useBp, useInputHandler } from "../context";
 import type { BpApp } from "../bridge";
 import type { InputAction } from "../input/actions";
-import { GridNavigator, jumpLetter } from "../nav/grid";
+import { GridNavigator } from "../nav/grid";
 import { GameTile } from "./GameTile";
 import { tileHints, useTileActions, type Back } from "./tileActions";
 
@@ -17,8 +17,6 @@ export type { Back };
 type Props = {
   tabId: string;
   apps: BpApp[];
-  /** LT / RT jump between letters (All sorted by name) instead of paging. */
-  letterJump: boolean;
   memory: Map<string, string>;
   onFocus: (app: BpApp | null) => void;
   onGlobal: (action: InputAction) => boolean;
@@ -58,7 +56,7 @@ const tileIndex = (target: EventTarget) => {
   return index == null ? null : Number(index);
 };
 
-export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, back, onDetails, onDownloads }: Props) {
+export function GridTab({ tabId, apps, memory, onFocus, onGlobal, back, onDetails, onDownloads }: Props) {
   const { scale, data, pointer } = useBp();
   const actions = useTileActions(onDownloads);
   const scroller = useRef<HTMLDivElement>(null);
@@ -101,7 +99,6 @@ export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, ba
   }, [row, height, m.rowH, m.tileH, m.padY, data.settings.reduceMotion]);
 
   const rows = Math.ceil(apps.length / m.columns);
-  const visibleRows = Math.max(1, Math.floor(height / m.rowH));
   const firstRow = Math.max(0, Math.floor(scrollTop / m.rowH) - 2);
   const lastRow = Math.min(rows - 1, Math.ceil((scrollTop + height) / m.rowH) + 2);
 
@@ -116,12 +113,6 @@ export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, ba
         case "right": {
           const moved = nav.move(action);
           if (moved.moved) focusAt(moved.index);
-          return;
-        }
-        case "pagePrev":
-        case "pageNext": {
-          const direction = action === "pageNext" ? 1 : -1;
-          focusAt(letterJump ? jumpLetter(apps.map((a) => a.title), index, direction) : nav.page(direction, visibleRows));
           return;
         }
         case "accept":
