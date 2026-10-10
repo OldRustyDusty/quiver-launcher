@@ -7,7 +7,8 @@
  * - The library is the catalog's first apps, most installed, some with an
  *   update, some not yet installed; it's kept in localStorage (?reset starts again).
  * - ?desktop starts in desktop mode instead of Big Picture; ?debug shows the input overlay;
- *   ?failLaunch makes every launch fail (error notices).
+ *   ?failLaunch makes every launch fail (error notices); ?empty&reset starts with an empty library,
+ *   and &v3 adds a Quiver 3 library to bring over.
  * - Controllers: bpPad("South") in the console presses and releases a control
  *   (gilrs names); bpPad("DPadRight", true) holds it, bpPad("DPadRight", false)
  *   lets go. The last argument is the pad's family ("playstation" for its glyphs).
@@ -28,6 +29,13 @@ type Entry = { id: string; slug: string; verified?: { version: string; releasedA
 async function seed() {
   if (params.has("reset")) Object.keys(localStorage).filter((k) => k.startsWith(PREFIX)).forEach((k) => localStorage.removeItem(k));
   if (load("library")) return;
+  // ?empty: a new Quiver 4 with nothing in it (with ?v3, a Quiver 3 library to bring over).
+  if (params.has("empty")) {
+    for (const name of ["library", "collections"]) save(name, []);
+    for (const name of ["installs", "catalog"]) save(name, {});
+    save("settings", { telemetryNoticeSeen: true, launched: true });
+    return;
+  }
   // ?apps=250 for a big library (the catalog sends up to 100 a page).
   const wanted = Number(params.get("apps") ?? 60);
   const page = { items: [] as Entry[] };
@@ -109,7 +117,12 @@ mockIPC(
         setTimeout(() => void emit("bp-game-exited", 1), 3000);
         return null;
       case "find_v3_library":
-        return [];
+        return params.has("v3")
+          ? [
+              { name: "2 Ship 2 Harkinian", repository: "HarbourMasters/2ship2harkinian", provider: "github", dir: "E:/QuiverLauncher/Apps/2ship", version: "5.0.1" },
+              { name: "Banjo: Recompiled", repository: "BanjoRecomp/BanjoRecomp", provider: "github" },
+            ]
+          : [];
       case "controllers":
         return ["Preview controller"];
       case "bp_monitors":

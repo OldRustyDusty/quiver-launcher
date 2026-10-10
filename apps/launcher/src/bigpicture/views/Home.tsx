@@ -136,7 +136,9 @@ export function Home({ nav, onFocus, onGlobal, onDetails, onDownloads, consoleNa
     holdFor: (action) => (action === "secondary" ? actions.holdFor(app) : undefined),
     onHold: (action) => action === "secondary" && actions.cancel(app),
     hints: () => (shelf?.updateAll && !app ? [{ action: "secondary", label: "Update all" }] : tileHints(app)),
-  });
+    // With nothing to show, the empty state (below) takes the input: a child's handler is pushed
+    // before its parent's, so this one would otherwise sit on top of it.
+  }, undefined, shelves.length > 0);
 
   if (!shelves.length) return <EmptyHome onGlobal={onGlobal} />;
 
