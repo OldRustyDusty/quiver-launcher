@@ -85,6 +85,21 @@ describe("libraryApps", () => {
     expect(apps.map((a) => a.id)).toEqual(["a"]);
   });
 
+  it("keeps an installed app whose launch or update failed, but not one whose first download failed", () => {
+    const apps = libraryApps(
+      input({
+        library: [item("a"), item("b")],
+        catalog: { a: entry("a"), b: entry("b") },
+        installs: { a: install() },
+        jobs: { a: { error: "Couldn't find a program to start." }, b: { error: "Network" } },
+      }),
+    );
+    expect(apps.map((a) => [a.id, a.state, isInstalled(a)])).toEqual([
+      ["a", "error", true],
+      ["b", "error", false],
+    ]);
+  });
+
   it("counts updating and update-available apps as installed", () => {
     const apps = libraryApps(
       input({

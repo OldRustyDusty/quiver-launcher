@@ -5,6 +5,9 @@ use tauri::State;
 
 use super::Data;
 
+#[cfg(any(windows, target_os = "linux"))]
+mod pads;
+
 /// Big Picture's own settings and per-app state, beside upstream's JSON files,
 /// which it never writes itself.
 fn sidecar_path(data: &Data) -> PathBuf {
@@ -52,6 +55,40 @@ pub fn bp_launch_args() -> LaunchArgs {
         big_picture: std::env::args().any(|a| a == "--bigpicture"),
         debug: std::env::var_os("QUIVER_BP_DEBUG").is_some_and(|v| v != "0"),
     }
+}
+
+/// Brings the launcher's window in front and gives it the keyboard: controllers
+/// (Windows.Gaming.Input) and keys only reach the window in front. Windows lets
+/// a window that isn't in front take focus only in some cases, so this can
+/// still leave it flashing in the taskbar; it says whether it worked.
+/// Async so it runs off the main thread: window calls from a synchronous command can deadlock on Windows.
+#[tauri::command]
+pub async fn bp_focus(window: tauri::WebviewWindow) -> bool {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    window.is_focused().unwrap_or(false)
+}
+
+/// Big Picture's controller reader (pads.rs): one for the app, running while Big Picture is open.
+#[cfg(any(windows, target_os = "linux"))]
+static PADS: std::sync::LazyLock<pads::Pads> = std::sync::LazyLock::new(Default::default);
+
+/// Starts reading controllers (Big Picture opened). SDL announces the pads already
+/// connected as it starts ("bp-pads"); listen before calling this.
+#[tauri::command]
+pub async fn bp_pads_start(app: tauri::AppHandle) {
+    #[cfg(any(windows, target_os = "linux"))]
+    PADS.start(app);
+    #[cfg(not(any(windows, target_os = "linux")))]
+    let _ = app;
+}
+
+/// Stops reading controllers (back to desktop mode, where upstream's reader is used).
+#[tauri::command]
+pub async fn bp_pads_stop() {
+    #[cfg(any(windows, target_os = "linux"))]
+    PADS.stop();
 }
 
 #[cfg(test)]

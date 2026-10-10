@@ -9,11 +9,11 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { native } from "../native";
 import { useLauncher } from "../store";
 import { suspendSpatialNavigation } from "../spatial";
-import { bpNative } from "./bpNative";
+import { bpNative, type PadPress } from "./bpNative";
 import { SidecarStore } from "./data/sidecar";
 import { bigPictureMode, closeBigPicture, openBigPicture } from "./mode";
 import { BpContext, type Bp, type InputFamily } from "./context";
-import { familyOf, keyAction, padAction, type InputAction } from "./input/actions";
+import { keyAction, padAction, type InputAction } from "./input/actions";
 import { RepeatFilter } from "./input/repeat";
 import { InputGate } from "./input/gate";
 import { InputRouter } from "./input/router";
@@ -70,6 +70,8 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
   const [family, setFamily] = useState<InputFamily>("keyboard");
   /** QUIVER_BP_DEBUG=1: the last controller events, and whether input is getting through. */
   const [events, setEvents] = useState<string[]>([]);
+  /** The cursor shows while the mouse moves, and hides again at the first key or button. */
+  const [pointer, setPointer] = useState(false);
   const height = useWindowHeight();
   const scale = Math.max(0.6, (height / 720) * data.settings.uiScale);
 
@@ -87,11 +89,16 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
     }
   }, [bridge.apps, sidecar]);
 
+  // Big Picture reads controllers itself while it's open (SDL3, src-tauri/src/bigpicture/pads.rs):
+  // upstream's reader loses them on Windows once the window has lost focus.
   const [pads, setPads] = useState<string[]>([]);
   useEffect(() => {
-    void native.controllers().then(setPads, () => {});
-    const off = native.onControllers(setPads);
-    return () => void off.then((stop) => stop());
+    const names = listen<string[]>("bp-pads", ({ payload }) => setPads(payload));
+    void names.then(() => bpNative.padsStart()).catch((e) => native.logError(`bigpicture pads: ${String(e)}`).catch(() => {}));
+    return () => {
+      void names.then((stop) => stop());
+      void bpNative.padsStop().catch(() => {});
+    };
   }, []);
 
   // Fullscreen while showing; back to the player's own choice after.
@@ -100,6 +107,11 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
     void native.setFullscreen(true).catch(() => {});
     return () => void native.setFullscreen(desktopFullscreen).catch(() => {});
   }, [desktopFullscreen]);
+
+  // Controllers (Windows.Gaming.Input) and keys only reach the window in front: take it.
+  useEffect(() => {
+    void bpNative.focus().catch(() => {});
+  }, []);
 
   // Big Picture takes the keyboard and controllers from upstream's spatial navigation while it shows.
   useEffect(() => {
@@ -115,6 +127,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
         if (e.repeat) return;
         keysDown.set(e.code, action);
         setFamily("keyboard");
+        setPointer(false);
       } else keysDown.delete(e.code);
       gate.input(`key:${e.code}`, action, down);
     };
@@ -122,28 +135,37 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
     const keyUp = onKey(false);
     window.addEventListener("keydown", keyDown, true);
     window.addEventListener("keyup", keyUp, true);
+    const onPointer = (e: MouseEvent) => (e.movementX || e.movementY) && setPointer(true);
+    window.addEventListener("mousemove", onPointer);
 
-    const pad = listen<{ key: string; down: boolean; vendor?: number | null }>("pad", ({ payload }) => {
+    const pad = listen<PadPress>("bp-pad", ({ payload }) => {
       if (debug) {
-        const vendor = payload.vendor == null ? "no vendor" : `vendor 0x${payload.vendor.toString(16).padStart(4, "0")}`;
-        const line = `${payload.key} ${payload.down ? "down" : "up"} · ${vendor} · ${gate.isOpen ? "open" : "dropped (window not in front)"}`;
+        const time = new Date().toLocaleTimeString(undefined, { hour12: false });
+        const line = `${time} pad ${payload.pad} ${payload.key} ${payload.down ? "down" : "up"} · ${payload.family} · ${gate.isOpen ? "open" : "dropped (window not in front)"}`;
         setEvents((e) => [line, ...e].slice(0, 8));
       }
       const action = padAction(payload.key);
       if (!action) return;
-      if (payload.down && gate.isOpen) setFamily(familyOf(payload.vendor));
-      gate.input(`pad:${payload.key}`, action, payload.down);
+      if (payload.down && gate.isOpen) {
+        setFamily(payload.family);
+        setPointer(false);
+      }
+      gate.input(`pad${payload.pad}:${payload.key}`, action, payload.down);
     });
 
     // The native window's focus, not the page's: a webview not clicked yet can say it isn't focused while its window is in front.
     const win = getCurrentWindow();
-    const setActive = (active: boolean) => (gate.windowActive = active);
+    const setActive = (active: boolean) => {
+      gate.windowActive = active;
+      if (debug) setEvents((e) => [`${new Date().toLocaleTimeString(undefined, { hour12: false })} window ${active ? "in front" : "behind"}`, ...e].slice(0, 8));
+    };
     void win.isFocused().then(setActive, () => setActive(true));
     const focus = win.onFocusChanged(({ payload }) => setActive(payload));
     return () => {
       suspendSpatialNavigation(false);
       window.removeEventListener("keydown", keyDown, true);
       window.removeEventListener("keyup", keyUp, true);
+      window.removeEventListener("mousemove", onPointer);
       void focus.then((stop) => stop(), () => {});
       void pad.then((stop) => stop());
     };
@@ -158,6 +180,11 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
     consoles,
     scale,
     pads,
+    pointer,
+    tap: (action) => {
+      router.dispatch({ action, phase: "press" });
+      router.dispatch({ action, phase: "release" });
+    },
     play: (id) => {
       sidecar.updateApp(id, (s) => ({ ...s, playCount: (s.playCount ?? 0) + 1 }));
       void bridge.play(id);
@@ -171,7 +198,7 @@ function BigPicture({ sidecar, debug }: { sidecar: SidecarStore; debug: boolean 
   return (
     <BpContext.Provider value={value}>
       <div
-        className={`bp-root${data.settings.reduceMotion ? " bp-reduce-motion" : ""}`}
+        className={`bp-root${data.settings.reduceMotion ? " bp-reduce-motion" : ""}${pointer ? " bp-pointer" : ""}`}
         style={{ "--u": `${scale}px` } as CSSProperties}
         role="application"
         aria-label="Quiver Launcher Big Picture"

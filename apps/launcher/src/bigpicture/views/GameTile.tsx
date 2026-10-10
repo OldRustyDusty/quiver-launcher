@@ -42,14 +42,16 @@ function Badge({ app }: { app: BpApp }) {
 }
 
 /** Placed by the grid: numbers, not a style object, so unchanged tiles skip rendering. */
-export const GameTile = memo(function GameTile({ app, focused, x, y, w, h }: { app: BpApp; focused: boolean; x: number; y: number; w: number; h: number }) {
+export const GameTile = memo(function GameTile({ app, focused, x, y, w, h, index }: { app: BpApp; focused: boolean; x: number; y: number; w: number; h: number; index?: number }) {
   const [failed, setFailed] = useState<string | null>(null);
   const art = app.art.capsule && failed !== app.art.capsule ? app.art.capsule : null;
   const busy = app.state === "downloading" || app.state === "updating";
   return (
     <div
       className={`bp-tile${focused ? " focused" : ""}${art ? "" : " no-art"}`}
-      aria-label={app.title} aria-current={focused || undefined}
+      aria-label={app.title}
+      aria-current={focused || undefined}
+      data-index={index}
       style={{ left: x, top: y, width: w, height: h }}
     >
       <div className="bp-tile-inner">

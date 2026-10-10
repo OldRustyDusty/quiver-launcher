@@ -94,8 +94,13 @@ export function libraryApps(input: BridgeInput): BpApp[] {
   });
 }
 
-/** Installed (including updating or with an update): what console tabs and All show. */
-export const isInstalled = (app: BpApp) => app.state === "installed" || app.state === "updateAvailable" || app.state === "updating";
+/**
+ * Installed (including updating, with an update, or one whose launch or update
+ * just failed): what console tabs and All show. A failed launch must not hide
+ * the game.
+ */
+export const isInstalled = (app: BpApp) =>
+  app.state === "installed" || app.state === "updateAvailable" || app.state === "updating" || (app.state === "error" && Boolean(app.installedVersion));
 
 type Task = { id: string; run: () => Promise<void>; done: () => void };
 

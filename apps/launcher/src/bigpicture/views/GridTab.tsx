@@ -52,8 +52,14 @@ export function useElementSize(ref: RefObject<HTMLElement | null>) {
   return size;
 }
 
+/** The grid index of the tile under the mouse, if any. */
+const tileIndex = (target: EventTarget) => {
+  const index = (target as Element).closest?.("[data-index]")?.getAttribute("data-index");
+  return index == null ? null : Number(index);
+};
+
 export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, back, onDetails, onDownloads }: Props) {
-  const { scale, data } = useBp();
+  const { scale, data, pointer } = useBp();
   const actions = useTileActions(onDownloads);
   const scroller = useRef<HTMLDivElement>(null);
   const { width, height } = useElementSize(scroller);
@@ -152,13 +158,34 @@ export function GridTab({ tabId, apps, letterJump, memory, onFocus, onGlobal, ba
           y={m.padY + r * m.rowH}
           w={m.tileW}
           h={m.tileH}
+          index={i}
         />,
       );
     }
   }
 
   return (
-    <div className="bp-grid-scroll" ref={scroller} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
+    <div
+      className="bp-grid-scroll"
+      ref={scroller}
+      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+      // The mouse: pointing at a tile focuses it, a click does what A does, a right click opens its details.
+      onMouseMove={(e) => {
+        const i = tileIndex(e.target);
+        if (pointer && i !== null && i !== index) focusAt(i);
+      }}
+      onClick={(e) => {
+        const i = tileIndex(e.target);
+        if (i === null) return;
+        focusAt(i);
+        actions.primary(apps[i]);
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const i = tileIndex(e.target);
+        if (i !== null) onDetails(apps[i]);
+      }}
+    >
       {apps.length ? (
         <div className="bp-grid" style={{ height: m.padY * 2 + rows * m.rowH }}>
           {width > 0 && tiles}

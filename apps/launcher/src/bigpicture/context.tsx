@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useRef } from "react";
 import type { Bridge } from "./useBridge";
 import type { BpSidecar, SidecarStore } from "./data/sidecar";
 import type { ConsoleCatalog } from "./consoles/consoles";
-import type { ControllerFamily } from "./input/actions";
+import type { ControllerFamily, InputAction } from "./input/actions";
 import { LAYER, type InputHandler, type InputRouter, type Layer } from "./input/router";
 
 /** Whose button names the hints show: the last thing pressed. */
@@ -23,6 +23,10 @@ export type Bp = {
   play(id: string): void;
   /** Controllers connected now, by name. */
   pads: string[];
+  /** The mouse is in use: tiles focus on hover and the cursor shows. */
+  pointer: boolean;
+  /** Presses and lets go of an action, as clicking a hint or a tab arrow does. */
+  tap(action: InputAction): void;
   /** Back to desktop mode. */
   exit(): void;
 };

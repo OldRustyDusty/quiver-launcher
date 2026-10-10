@@ -60,7 +60,8 @@ apps/launcher/src-tauri/src/bigpicture/
 
 ## 4. Input (replaces §5.1 and §5.3)
 
-* **Keep upstream gilrs. Don't add SDL3.** gilrs already runs on its own thread and reaches DualSense through WGI `RawGameController` on Windows.
+* **Superseded 2026-10-10: Big Picture reads controllers with SDL3 (`src-tauri/src/bigpicture/pads.rs`)** while it's open. gilrs's Windows backend stopped delivering input after the window lost focus, and didn't recover. Upstream's gilrs stays for desktop mode. The original note follows.
+* ~~Keep upstream gilrs. Don't add SDL3.~~ gilrs already runs on its own thread and reaches DualSense through WGI `RawGameController` on Windows.
   The upstream touch is to add the pad's **vendor id** to the `pad` event, so Big Picture can pick glyphs
   (`0x054C` Sony → PlayStation, `0x045E` Microsoft → Xbox, else Generic).
 * Pad key → action (gilrs names): `South`→Accept, `East`→Back, `West`→Secondary, `North`→Details,

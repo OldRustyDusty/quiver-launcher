@@ -722,6 +722,27 @@
   font-size: calc(var(--u) * 15);
 }
 
+/* The mouse: the cursor shows only while it's in use; tiles, tabs and hints are clickable. */
+.bp-root:not(.bp-pointer),
+.bp-root:not(.bp-pointer) * {
+  cursor: none !important;
+}
+.bp-root.bp-pointer .bp-tile,
+.bp-root.bp-pointer .bp-tab,
+.bp-root.bp-pointer .bp-hint,
+.bp-root.bp-pointer .bp-glyph-button,
+.bp-root.bp-pointer .bp-menu li {
+  cursor: pointer;
+}
+.bp-glyph-button {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+
 /* QUIVER_BP_DEBUG=1 */
 .bp-debug {
   position: fixed;

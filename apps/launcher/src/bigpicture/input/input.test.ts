@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { familyOf, keyAction, padAction, type InputAction } from "./actions";
+import { keyAction, padAction, type InputAction } from "./actions";
 import { InputGate } from "./gate";
 import { RepeatFilter, type InputEvent } from "./repeat";
 import { InputRouter, LAYER, type InputHandler } from "./router";
@@ -26,13 +26,6 @@ describe("maps", () => {
     expect(["Select", "Start", "DPadUp", "LeftStickRight"].map(padAction)).toEqual(["search", "menu", "up", "right"]);
     expect(padAction("Mode")).toBeNull();
     expect(padAction("RightStickUp")).toBeNull();
-  });
-
-  it("picks glyphs by the controller's maker", () => {
-    expect(familyOf(0x054c)).toBe("playstation");
-    expect(familyOf(0x045e)).toBe("xbox");
-    expect(familyOf(0x057e)).toBe("generic");
-    expect(familyOf(undefined)).toBe("generic");
   });
 });
 

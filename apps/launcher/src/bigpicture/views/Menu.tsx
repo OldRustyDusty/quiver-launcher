@@ -27,7 +27,7 @@ export function Menu({ onClose }: { onClose: () => void }) {
       <h2>Big Picture</h2>
       <ul>
         {items.map((item, i) => (
-          <li key={item.label} className={i === index ? "focused" : ""}>
+          <li key={item.label} className={i === index ? "focused" : ""} onMouseMove={() => setIndex(i)} onClick={item.run}>
             {item.label}
           </li>
         ))}

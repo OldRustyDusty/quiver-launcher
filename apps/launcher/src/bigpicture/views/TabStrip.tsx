@@ -10,9 +10,9 @@ import { useBp } from "../context";
 import type { Tab } from "../consoles/tabs";
 import { Glyph } from "./Glyph";
 
-function TabLabel({ tab, selected, compact }: { tab: Tab; selected: boolean; compact: boolean }) {
+function TabLabel({ tab, selected, compact, onSelect }: { tab: Tab; selected: boolean; compact: boolean; onSelect: (id: string) => void }) {
   return (
-    <span role="tab" aria-selected={selected} data-tab={tab.id} className={`bp-tab${selected ? " selected" : ""}`}>
+    <span role="tab" aria-selected={selected} data-tab={tab.id} className={`bp-tab${selected ? " selected" : ""}`} onClick={() => onSelect(tab.id)}>
       {compact && tab.kind === "console" ? tab.short : tab.label}
       {tab.kind === "downloads" && tab.count ? <span className="bp-tab-count">{tab.count}</span> : null}
     </span>
@@ -46,8 +46,8 @@ function DownloadStatus() {
   );
 }
 
-export function TabStrip({ tabs, selected }: { tabs: Tab[]; selected: string }) {
-  const { pads } = useBp();
+export function TabStrip({ tabs, selected, onSelect }: { tabs: Tab[]; selected: string; onSelect: (id: string) => void }) {
+  const { pads, tap } = useBp();
   const clock = useClock();
   const nav = useRef<HTMLElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -75,18 +75,22 @@ export function TabStrip({ tabs, selected }: { tabs: Tab[]; selected: string }) 
   return (
     <nav className="bp-topbar" aria-label="Library" ref={nav}>
       <img className="bp-mark" src="/quiver-icon-96.png" alt="Quiver" />
-      <Glyph action="tabPrev" />
+      <button type="button" className="bp-glyph-button" aria-label="Previous tab" onClick={() => tap("tabPrev")}>
+        <Glyph action="tabPrev" />
+      </button>
       <div className="bp-tabs" ref={scroller} role="tablist">
         {library.map((tab) => (
-          <TabLabel key={tab.id} tab={tab} selected={tab.id === selected} compact={compact} />
+          <TabLabel key={tab.id} tab={tab} selected={tab.id === selected} compact={compact} onSelect={onSelect} />
         ))}
       </div>
       <div className="bp-tabs-end" role="tablist">
         {end.map((tab) => (
-          <TabLabel key={tab.id} tab={tab} selected={tab.id === selected} compact={compact} />
+          <TabLabel key={tab.id} tab={tab} selected={tab.id === selected} compact={compact} onSelect={onSelect} />
         ))}
       </div>
-      <Glyph action="tabNext" />
+      <button type="button" className="bp-glyph-button" aria-label="Next tab" onClick={() => tap("tabNext")}>
+        <Glyph action="tabNext" />
+      </button>
       {bar && <span className="bp-tab-bar" style={{ left: bar.left, width: bar.width }} />}
       <div className="bp-status">
         <DownloadStatus />

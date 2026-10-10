@@ -26,7 +26,8 @@ export function tileHints(app: BpApp | null | undefined, back?: Back): ButtonHin
       hints.push({ action: "accept", label: "Downloads" }, { action: "secondary", label: "Cancel", hold: true });
       break;
     case "error":
-      hints.push({ action: "accept", label: "Retry" });
+      // An installed game whose launch failed plays again; a failed download tries again.
+      hints.push({ action: "accept", label: app.installedVersion ? "Play" : "Retry" });
       break;
     case "notInstalled":
       hints.push({ action: "accept", label: "Get" });
@@ -43,9 +44,8 @@ export function useTileActions(onDownloads: () => void) {
     /** A: play, get, retry, or see the download. */
     primary(app: BpApp | null | undefined) {
       if (!app) return;
-      if (app.state === "installed" || app.state === "updateAvailable") play(app.id);
+      if (app.state === "installed" || app.state === "updateAvailable" || (app.state === "error" && app.installedVersion)) play(app.id);
       else if (isBusy(app)) onDownloads();
-      else if (app.state === "error") void (app.installedVersion ? bridge.update(app.id) : bridge.install(app.entry));
       else void bridge.install(app.entry);
     },
     /** X: a manual update ignores the update setting and a skipped version (spec §9). */

@@ -9,7 +9,7 @@
  * - ?desktop starts in desktop mode instead of Big Picture; ?debug shows the input overlay.
  * - Controllers: bpPad("South") in the console presses and releases a control
  *   (gilrs names); bpPad("DPadRight", true) holds it, bpPad("DPadRight", false)
- *   lets go. The last argument is the vendor id (0x054c for PlayStation glyphs).
+ *   lets go. The last argument is the pad's family ("playstation" for its glyphs).
  * - Installs pretend to download for a few seconds.
  */
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -98,6 +98,9 @@ mockIPC(
         return [];
       case "controllers":
         return ["Preview controller"];
+      case "bp_pads_start":
+        setTimeout(() => void emit("bp-pads", ["Preview controller"]), 50);
+        return null;
       default:
         return null;
     }
@@ -108,10 +111,10 @@ mockIPC(
 mockWindows("main");
 
 Object.assign(window, {
-  bpPad: (key: string, down?: boolean, vendor = 0x045e) => {
-    if (down !== undefined) return emit("pad", { key, down, vendor });
-    void emit("pad", { key, down: true, vendor });
-    setTimeout(() => void emit("pad", { key, down: false, vendor }), 60);
+  bpPad: (key: string, down?: boolean, family = "xbox") => {
+    if (down !== undefined) return emit("bp-pad", { key, down, family, pad: 0 });
+    void emit("bp-pad", { key, down: true, family, pad: 0 });
+    setTimeout(() => void emit("bp-pad", { key, down: false, family, pad: 0 }), 60);
   },
 });
 

@@ -46,8 +46,14 @@ function UpdateAllCard({ count, focused }: { count: number; focused: boolean }) 
   );
 }
 
+/** The shelf row and column of the tile under the mouse, if any. */
+function cellAt(target: EventTarget) {
+  const cell = (target as Element).closest?.("[data-row][data-col]");
+  return cell ? { row: Number(cell.getAttribute("data-row")), col: Number(cell.getAttribute("data-col")) } : null;
+}
+
 export function Home({ nav, onFocus, onGlobal, onDetails, onDownloads, consoleName }: Props) {
-  const { bridge, data, scale } = useBp();
+  const { bridge, data, scale, pointer } = useBp();
   const actions = useTileActions(onDownloads);
   const shelves = useMemo(() => homeShelves(bridge.apps, data), [bridge.apps, data]);
   const lengths = shelves.map(rowLength);
@@ -57,6 +63,10 @@ export function Home({ nav, onFocus, onGlobal, onDetails, onDownloads, consoleNa
   const app = shelf ? appAt(shelf, nav.col) : null;
 
   useEffect(() => onFocus(app), [app, onFocus]);
+  const focusCell = (at: { row: number; col: number }) => {
+    nav.reset(lengths, at);
+    setVersion((v) => v + 1);
+  };
 
   const list = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -110,7 +120,30 @@ export function Home({ nav, onFocus, onGlobal, onDetails, onDownloads, consoleNa
           )}
         </div>
       </section>
-      <div className="bp-shelves" ref={list}>
+      <div
+        className="bp-shelves"
+        ref={list}
+        // The mouse: pointing at a tile focuses it, a click does what A does (X on Update all), a right click opens details.
+        onMouseMove={(e) => {
+          const at = cellAt(e.target);
+          if (pointer && at && (at.row !== nav.row || at.col !== nav.col)) focusCell(at);
+        }}
+        onClick={(e) => {
+          const at = cellAt(e.target);
+          if (!at) return;
+          focusCell(at);
+          const s = shelves[at.row];
+          const a = appAt(s, at.col);
+          if (s.updateAll && !a) actions.updateAll(s.apps);
+          else actions.primary(a);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          const at = cellAt(e.target);
+          const a = at && appAt(shelves[at.row], at.col);
+          if (a) onDetails(a);
+        }}
+      >
         {shelves.map((s, row) => {
           const length = rowLength(s);
           const col = row === nav.row ? nav.col : (nav.memory[row] ?? 0);
@@ -130,9 +163,11 @@ export function Home({ nav, onFocus, onGlobal, onDetails, onDownloads, consoleNa
                     const focused = row === nav.row && c === nav.col;
                     const x = c * step;
                     return a ? (
-                      <GameTile key={a.id} app={a} focused={focused} x={x} y={0} w={TILE_W * scale} h={TILE_H * scale} />
+                      <div key={a.id} data-row={row} data-col={c} className="bp-tile-slot" style={{ left: x, width: TILE_W * scale, height: TILE_H * scale }}>
+                        <GameTile app={a} focused={focused} x={0} y={0} w={TILE_W * scale} h={TILE_H * scale} />
+                      </div>
                     ) : (
-                      <div key="all" className="bp-tile-slot" style={{ left: x, width: TILE_W * scale, height: TILE_H * scale }}>
+                      <div key="all" data-row={row} data-col={c} className="bp-tile-slot" style={{ left: x, width: TILE_W * scale, height: TILE_H * scale }}>
                         <UpdateAllCard count={s.apps.length} focused={focused} />
                       </div>
                     );

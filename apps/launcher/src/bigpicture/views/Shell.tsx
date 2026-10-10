@@ -85,7 +85,14 @@ export function Shell() {
   return (
     <>
       <Backdrop app={shown} />
-      <TabStrip tabs={tabs} selected={tab.id} />
+      <TabStrip
+        tabs={tabs}
+        selected={tab.id}
+        onSelect={(id) => {
+          setDirection(tabs.findIndex((t) => t.id === id) < tabs.findIndex((t) => t.id === tab.id) ? -1 : 1);
+          setSelectedId(id);
+        }}
+      />
       <main className="bp-content">
         <div className={`bp-page${direction < 0 ? " from-left" : ""}`} key={tab.id}>
           {tab.kind === "home" ? (

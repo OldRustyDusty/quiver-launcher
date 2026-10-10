@@ -103,10 +103,3 @@ const PAD: Record<string, InputAction> = {
 };
 
 export const padAction = (key: string): InputAction | null => PAD[key] ?? null;
-
-/** Glyphs follow the maker: Sony pads (DualShock, DualSense) get PlayStation's, others Xbox's (spec §5.3). */
-export function familyOf(vendor: number | null | undefined): ControllerFamily {
-  if (vendor === 0x054c) return "playstation";
-  if (vendor === 0x045e) return "xbox";
-  return "generic";
-}

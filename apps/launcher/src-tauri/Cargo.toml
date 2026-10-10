@@ -35,6 +35,10 @@ dirs = "6"
 crc32fast = "1"
 tauri-plugin-dialog = "2"
 
+# Big Picture (fork): controllers through SDL3, built from source and linked in (src/bigpicture/pads.rs).
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+sdl3-sys = { version = "0.7.2", default-features = false, features = ["build-from-source-static", "no-sdl-audio", "no-sdl-camera", "no-sdl-gpu", "no-sdl-render", "no-sdl-dialog", "no-sdl-tray"] }
+
 [target.'cfg(windows)'.dependencies]
 mslnk = "0.1"
 
