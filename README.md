@@ -169,7 +169,8 @@ keep everything in one place instead:
   Big Quiver moves them over the next time it starts.
 
 **How you're asked:** right after you import your Quiver 3 library, or (if you imported earlier) once on the first start with
-this feature, with *Yes*, *Not now* and *Don't ask again*. You can also turn it on or off any time in Big Picture's Settings.
+this feature, with *Yes*, *Not now* and *Don't ask again*. It's recommended: both launchers then share the same game files and
+folders, so each game is installed once, and its updates and saves work in both. You can also turn it on or off any time in Big Picture's Settings.
 Before changing anything, it shows what it's going to do.
 
 **Safe for Quiver 3's library:** Big Quiver writes Quiver 3's list (`apps.json`) only while Quiver 3 is closed. If Quiver 3

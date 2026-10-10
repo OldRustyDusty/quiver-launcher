@@ -57,7 +57,11 @@ function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
           <FolderSync aria-hidden="true" /> Use the same games folder as Quiver 3?
         </h2>
         <p className="bp-dialog-lead">
-          Games you get in Big Quiver Launcher will install to <b className="bp-share-path">{d.gamesDir}</b> with your Quiver 3 games, and show up in Quiver 3 too.
+          <b>Recommended.</b> Quiver 3 and Big Quiver Launcher will share the same game files and folders, so each game is installed once, and its updates and saves
+          work in both.
+        </p>
+        <p className="bp-dialog-lead">
+          Games you get in Big Quiver Launcher will install to <b className="bp-share-path">{d.gamesDir}</b> with your Quiver 3 games.
         </p>
         {d.error ? (
           <p className="bp-error">{d.error}</p>

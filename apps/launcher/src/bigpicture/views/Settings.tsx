@@ -177,7 +177,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           {
             kind: "choice",
             label: "Use the same games folder as Quiver 3",
-            detail: `Games install to ${share.gamesDir} and show up in Quiver 3 too`,
+            detail: `Recommended: Quiver 3 and Big Quiver share the same game files and folders (${share.gamesDir})`,
             options: onOff,
             value: share.on,
             // On asks first, with what it would do; Off just stops.
