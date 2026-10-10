@@ -31,6 +31,8 @@ export type ShareDialog =
   | { kind: "ask"; oneTime: boolean; plan: Plan | null; running: boolean; gamesDir: string; error?: string }
   | { kind: "working"; title: string; step: number; steps: number; current: string; done: number; total: number }
   | { kind: "done"; title: string; lines: string[] }
+  /** Settings → Off: what turning it off means, before it's off. */
+  | { kind: "off"; gamesDir: string }
   | null;
 
 export type Share = {
@@ -45,7 +47,10 @@ export type Share = {
   notNow(): void;
   dontAsk(): void;
   closeDialog(): void;
+  /** Settings → Off: asks first. */
   turnOff(): void;
+  /** The answer to that: off it goes. */
+  confirmOff(): void;
 };
 
 /** The catalog's repositories, fetched once (upstream's release-status feed), and its games' slugs. */
@@ -310,6 +315,8 @@ export function useShare(sidecar: SidecarStore | null): Share {
   }
 
   async function openAsk(oneTime: boolean) {
+    // Asked once per run, whoever asked: Not now isn't followed by the same question again.
+    asked.current = true;
     const found = await refresh();
     if (!found) return;
     setDialog({ kind: "ask", oneTime, plan: null, running: found.running, gamesDir: found.gamesDir });
@@ -428,7 +435,16 @@ export function useShare(sidecar: SidecarStore | null): Share {
         setDialog(null);
       },
       closeDialog: () => setDialog((d) => (d?.kind === "working" ? d : null)),
-      turnOff: () => sidecar?.setV3Share({ on: false }),
+      turnOff: () => {
+        if (lib) setDialog({ kind: "off", gamesDir: lib.gamesDir });
+        else sidecar?.setV3Share({ on: false });
+      },
+      confirmOff: () => {
+        // Asked and answered: turning it off mustn't bring the question to turn it on straight back.
+        asked.current = true;
+        sidecar?.setV3Share({ on: false });
+        setDialog(null);
+      },
     }),
     [lib, on, dialog, sidecar], // eslint-disable-line react-hooks/exhaustive-deps
   );

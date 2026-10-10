@@ -22,6 +22,11 @@ function hintsFor(share: Share): ButtonHint[] {
     ];
   }
   if (d?.kind === "done") return [{ action: "accept", label: "OK" }];
+  if (d?.kind === "off")
+    return [
+      { action: "accept", label: "Turn off" },
+      { action: "back", label: "Keep it on" },
+    ];
   return [];
 }
 
@@ -32,6 +37,10 @@ function press(share: Share, action: InputAction) {
     else if (action === "back") share.notNow();
     else if (action === "details" && d.oneTime) share.dontAsk();
   } else if (d?.kind === "done" && (action === "accept" || action === "back")) share.closeDialog();
+  else if (d?.kind === "off") {
+    if (action === "accept") share.confirmOff();
+    else if (action === "back") share.closeDialog();
+  }
 }
 
 function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
@@ -91,6 +100,24 @@ function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
     );
   }
 
+  if (d.kind === "off") {
+    return (
+      <>
+        <h2>
+          <FolderSync aria-hidden="true" /> Stop using the same games folder as Quiver 3?
+        </h2>
+        <p className="bp-dialog-lead">
+          Games already in <b className="bp-share-path">{d.gamesDir}</b> stay there and keep working in both launchers. Nothing is moved back.
+        </p>
+        <p className="bp-dialog-lead">
+          From now on, games you get in Big Quiver Launcher will install to its own folder instead, and Quiver 3 will not see game updates or newly installed games
+          from Big Quiver Launcher, if launched separately on its own.
+        </p>
+        {buttons}
+      </>
+    );
+  }
+
   if (d.kind === "working") {
     const fraction = d.total > 0 ? d.done / d.total : null;
     return (
@@ -126,7 +153,7 @@ function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
 
 function Frame({ share, glyphs }: { share: Share; glyphs: boolean }) {
   return (
-    <div className="bp-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Use the same games folder as Quiver 3">
+    <div className="bp-dialog-backdrop" role="dialog" aria-modal="true" aria-label={share.dialog?.kind === "off" ? "Stop using the same games folder as Quiver 3" : "Use the same games folder as Quiver 3"}>
       <section className="bp-dialog bp-share">
         <div className="bp-dialog-body">
           <Body share={share} glyphs={glyphs} />

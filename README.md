@@ -175,8 +175,9 @@ Before changing anything, it shows what it's going to do.
 
 **Safe for Quiver 3's library:** Big Quiver writes Quiver 3's list (`apps.json`) only while Quiver 3 is closed. If Quiver 3
 is open, it asks you to close it, or keeps the change until you do. It takes the same lock Quiver 3 uses, and saves a backup
-in Quiver 3's own `Backups\apps` folder before every change. Turning the setting off doesn't undo anything, but that first
-backup restores Quiver 3's list exactly as it was.
+in Quiver 3's own `Backups\apps` folder before every change. Turning the setting off asks first, and doesn't undo anything:
+games already in Quiver 3's folder stay there, and new games go to Big Quiver's own folder again. That first backup restores
+Quiver 3's list exactly as it was, if you ever need it.
 
 **Shortcuts:** desktop shortcuts to moved games are made again automatically. Steam shortcuts to them stop working; add those
 games to Steam again from their page in desktop mode.
