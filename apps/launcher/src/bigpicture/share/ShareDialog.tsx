@@ -57,8 +57,12 @@ function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
           <FolderSync aria-hidden="true" /> Use the same games folder as Quiver 3?
         </h2>
         <p className="bp-dialog-lead">
-          <b>Recommended.</b> Quiver 3 and Big Quiver Launcher will share the same game files and folders, so each game is installed once, and its updates and saves
-          work in both.
+          This is a new feature, and is <b>Recommended</b>. When enabled, Quiver 3 and Big Quiver Launcher will share the same game files and folders, so each game is
+          installed once, and its updates and saves work in both.
+        </p>
+        <p className="bp-dialog-lead">
+          If this feature isn't enabled, note that Quiver 3 will not see game updates or newly installed games from Quiver Big Picture, if launched separately on its
+          own.
         </p>
         <p className="bp-dialog-lead">
           Games you get in Big Quiver Launcher will install to <b className="bp-share-path">{d.gamesDir}</b> with your Quiver 3 games.
@@ -79,7 +83,7 @@ function Body({ share, glyphs }: { share: Share; glyphs: boolean }) {
           )
         )}
         {d.plan && d.plan.moves.length + d.plan.duplicates.length > 0 && (
-          <p className="bp-dialog-lead small">Moved games keep their saves. Desktop shortcuts to them are made again; Steam shortcuts need adding again.</p>
+          <p className="bp-dialog-lead small">Moved games will keep their saves. Desktop shortcuts to them are made again; Steam shortcuts need adding again.</p>
         )}
         {d.running && <p className="bp-error">Close Quiver Launcher 3 to continue.</p>}
         {buttons}

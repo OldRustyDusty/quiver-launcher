@@ -226,7 +226,9 @@ Wording (user's direction, 2026-10-10). Avoid "in step" and "sync". Name the app
 **Quiver 3**.
 
 > **Use the same games folder as Quiver 3?**
-> **Recommended.** Quiver 3 and Big Quiver Launcher will share the same game files and folders, so each game is installed once, and its updates and saves work in both. (Added 2026-10-10 at the user's request: the prompt has to say why.)
+> This is a new feature, and is **Recommended**. When enabled, Quiver 3 and Big Quiver Launcher will share the same game files and folders, so each game is installed once, and its updates and saves work in both.
+> If this feature isn't enabled, note that Quiver 3 will not see game updates or newly installed games from Quiver Big Picture, if launched separately on its own.
+> (The user's wording, 2026-10-10: the prompt has to say why, and what happens without it.)
 > Games you get in Big Quiver Launcher will install to `<3.5 games folder>` with your Quiver 3 games, and show up in Quiver 3 too.
 > [Yes] [Not now] ([Don't ask again] on the one-time prompt)
 
