@@ -40,7 +40,7 @@ official Quiver Launcher 4 (see [Your library](#your-library)).
 
 ### Download (Windows)
 
-1. Download `Big Quiver Launcher_<version>_x64-setup.exe` from the [Releases](../../releases) page.
+1. Download `Big.Quiver.Launcher_<version>_x64-setup.exe` from the [latest release](../../releases).
 2. Run it. It installs for your Windows user only, with no admin rights needed, and adds **Big Quiver Launcher** to the Start menu.
 3. Open it, then press the controller icon in the top bar to enter Big Picture.
 
