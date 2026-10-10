@@ -22,9 +22,14 @@ describe("GridNavigator", () => {
     expect(grid(7).move("right")).toEqual({ moved: true, index: 8 });
   });
 
-  it("reports an edge only before the first tile, after the last, and above or below the grid", () => {
-    expect(grid(0).move("left")).toEqual({ moved: false, edge: "left" });
-    expect(grid(9).move("right")).toEqual({ moved: false, edge: "right" });
+  it("goes round: right from the last tile to the first, left from the first to the last", () => {
+    expect(grid(9).move("right")).toEqual({ moved: true, index: 0 });
+    expect(grid(0).move("left")).toEqual({ moved: true, index: 9 });
+  });
+
+  it("reports an edge above and below the grid, and anywhere in a grid of one", () => {
+    expect(new GridNavigator().reset(1, 4).move("right")).toEqual({ moved: false, edge: "right" });
+    expect(new GridNavigator().reset(1, 4).move("left")).toEqual({ moved: false, edge: "left" });
     expect(grid(2).move("up")).toEqual({ moved: false, edge: "up" });
     expect(grid(9).move("down")).toEqual({ moved: false, edge: "down" });
   });
