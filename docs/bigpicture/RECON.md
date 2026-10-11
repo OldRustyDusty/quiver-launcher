@@ -1,7 +1,7 @@
 # Big Picture fork: recon (S0)
 
 Fork: `OldRustyDusty/quiver-launcher-big-picture` (renamed from `quiver-launcher` on 2026-10-10), branch `bigpicture`, based on upstream `v4` @ `320013f` (2026-10-09).
-Upstream: `tgeorgiadis/quiver-launcher`, MIT.
+Upstream: `tgeorgiadis/quiver-launcher` by Thomas Georgiadis, MIT.
 
 ## Why v4 and not `main`
 

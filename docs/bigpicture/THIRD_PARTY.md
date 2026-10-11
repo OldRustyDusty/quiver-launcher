@@ -1,5 +1,7 @@
 # Third-party components added by the Big Picture fork
 
+Big Quiver Launcher is a fork of [Quiver Launcher](https://github.com/tgeorgiadis/quiver-launcher) by [Thomas Georgiadis](https://github.com/tgeorgiadis) (MIT). Everything outside the Big Picture code is his work.
+
 Allowed licenses: MIT, BSD, Apache-2.0, zlib, CC0, OFL. Open each LICENSE before adding, then record it here.
 
 | Component | Version | Use | License | Verified from |

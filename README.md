@@ -12,6 +12,11 @@ This is an unofficial fork. Everything Quiver Launcher 4 does still works in des
 updates, playlists and accounts. Big Picture is an extra fullscreen mode on top. Both modes use the same library, and so will the
 official Quiver Launcher 4 once it's released (see [Your library](#your-library)).
 
+> **Built on Quiver Launcher by [Thomas Georgiadis](https://github.com/tgeorgiadis).** The launcher itself, its installs and
+> updates, desktop mode, and the [quiverlauncher.com](https://quiverlauncher.com) catalog behind every game here are his work;
+> this fork adds the Big Picture mode on top. If you enjoy it, please star and support the
+> [original project](https://github.com/tgeorgiadis/quiver-launcher) ([Ko-fi](https://ko-fi.com/magicturt1e)).
+
 > **Alpha.** It's built on Quiver Launcher 4, which hasn't been released yet: the current official release is Quiver Launcher
 > 3.5. Tested on Windows 11 with Xbox and DualSense controllers.
 
@@ -243,8 +248,10 @@ This fork's builds don't include that token, so **they send no usage data**.
 
 ## Credits
 
-- [Quiver Launcher](https://github.com/tgeorgiadis/quiver-launcher) by tgeorgiadis: everything that isn't Big Picture, and
-  the [quiverlauncher.com](https://quiverlauncher.com) catalog. This fork isn't affiliated with or endorsed by Quiver.
+- **[Quiver Launcher](https://github.com/tgeorgiadis/quiver-launcher) by [Thomas Georgiadis](https://github.com/tgeorgiadis)**
+  ([@tgeorgiadis](https://github.com/tgeorgiadis)): the launcher this fork is built on, which is everything that isn't Big
+  Picture, and the [quiverlauncher.com](https://quiverlauncher.com) catalog. Thank you! This fork isn't affiliated with or
+  endorsed by Quiver.
 - Button glyphs: [Kenney Input Prompts](https://kenney.nl/assets/input-prompts) (CC0).
 - Controller input: [SDL3](https://libsdl.org) (zlib). Game-process tracking: [sysinfo](https://crates.io/crates/sysinfo) (MIT).
 
@@ -252,4 +259,4 @@ See [`docs/bigpicture/THIRD_PARTY.md`](docs/bigpicture/THIRD_PARTY.md).
 
 ## License
 
-MIT, like upstream.
+MIT, like upstream Quiver Launcher. The original copyright notice in [`LICENSE`](LICENSE) is kept as it is.

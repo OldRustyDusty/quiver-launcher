@@ -1,5 +1,7 @@
 # Big Picture on v4: how the spec translates
 
+Big Quiver Launcher is a fork of [Quiver Launcher](https://github.com/tgeorgiadis/quiver-launcher) by [Thomas Georgiadis](https://github.com/tgeorgiadis) (MIT). Everything outside the Big Picture code is his work.
+
 The original spec (`SPEC.md`) still governs **scope, hard rules, locked decisions, the button
 map, screens and the test plan**. This file records only what changes because the base is v4
 (Tauri/React/Rust) instead of 3.x (.NET/Avalonia). Each change cites the spec section it replaces.
