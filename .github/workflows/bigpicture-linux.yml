@@ -1,0 +1,35 @@
+# Big Picture fork (docs/bigpicture/FORK_CHANGES.md): a Linux AppImage of Big Quiver
+# Launcher, for Linux desktops and Steam Deck-style machines (Bazzite, SteamOS).
+# Started by hand (Actions → Linux AppImage → Run workflow). The AppImage is kept
+# as the run's artifact; nothing is published.
+name: Linux AppImage
+on:
+  workflow_dispatch:
+
+jobs:
+  appimage:
+    # The oldest supported Ubuntu, so the AppImage runs on older and newer distros alike.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: apps/launcher/src-tauri }
+      # Tauri's WebKitGTK and tray libraries; udev for controllers (SDL3, gilrs); FUSE for the AppImage tools.
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libudev-dev patchelf libfuse2 cmake
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: cargo test --manifest-path apps/launcher/src-tauri/Cargo.toml
+      - run: pnpm --filter @quiver/launcher tauri build --bundles appimage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Big Quiver Launcher Linux AppImage
+          path: apps/launcher/src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
