@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(serde::Serialize, Clone)]
 struct Press {
@@ -153,15 +153,24 @@ fn read(app: AppHandle, on: Arc<AtomicBool>) {
         };
 
         let mut event: SDL_Event = std::mem::zeroed();
-        // Since when Start + Select have been held, and whether that hold has closed a game already.
+        // Since when Start + Select have been held, and whether that hold has acted already.
         let mut combo: Option<(Instant, bool)> = None;
+        // What the combo did, in quiver.log: Game Mode can't be watched any other way.
+        let log = |line: &str| crate::append_log(&app.state::<crate::Data>().0.join("quiver.log"), line);
         while on.load(Ordering::Relaxed) {
             let got = SDL_WaitEventTimeout(&mut event, 50);
             if !holds_close_combo(&held) {
                 combo = None;
             } else if let Some((since, done)) = combo.as_mut() {
-                if !*done && since.elapsed() >= CLOSE_HOLD && super::session::CLOSE_COMBO.load(Ordering::Relaxed) && super::session::close_game() {
+                if !*done && since.elapsed() >= CLOSE_HOLD {
                     *done = true;
+                    log(if !super::session::CLOSE_COMBO.load(Ordering::Relaxed) {
+                        "Start + Select held: closing a game with it is off in Settings"
+                    } else if super::session::close_game(&app.state::<crate::Data>().0.join("quiver.log")) {
+                        "Start + Select held: closing the game"
+                    } else {
+                        "Start + Select held: no game started from Big Quiver is running"
+                    });
                 }
             } else {
                 combo = Some((Instant::now(), false));
@@ -176,6 +185,7 @@ fn read(app: AppHandle, on: Arc<AtomicBool>) {
                 if !pad.is_null() {
                     let name = SDL_GetGamepadName(pad);
                     let name = if name.is_null() { "Controller".into() } else { CStr::from_ptr(name).to_string_lossy().into_owned() };
+                    log(&format!("Controller connected: {name}"));
                     pads.insert(id.0, (pad, family_of(SDL_GetRealGamepadType(pad)), name));
                     publish(&pads);
                 }

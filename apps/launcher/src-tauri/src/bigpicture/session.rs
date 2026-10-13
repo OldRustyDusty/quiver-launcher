@@ -204,13 +204,20 @@ pub fn bp_close_combo(on: bool) {
 
 /// Closes the game being played and everything it started (in the background);
 /// false when none is.
-pub fn close_game() -> bool {
+pub fn close_game(log: &Path) -> bool {
     let Some((_, pid, dir)) = PLAYING.lock().unwrap().clone() else { return false };
-    std::thread::Builder::new().name("bp-close-game".into()).spawn(move || close_tree(Pid::from_u32(pid), &dir, GRACE)).is_ok()
+    let log = log.to_path_buf();
+    std::thread::Builder::new()
+        .name("bp-close-game".into())
+        .spawn(move || {
+            let outcome = close_tree(Pid::from_u32(pid), &dir, GRACE);
+            crate::append_log(&log, &format!("Closing the game (process {pid}, {}): {outcome}", dir.display()));
+        })
+        .is_ok()
 }
 
-/// Asks the game's processes to quit, then forces whichever are left after `grace`.
-fn close_tree(root: Pid, dir: &Path, grace: Duration) {
+/// Asks the game's processes to quit, then forces whichever are left after `grace`; says how it went.
+fn close_tree(root: Pid, dir: &Path, grace: Duration) -> String {
     let mut system = System::new();
     let targets = game_processes(&mut system, root, dir);
     for pid in &targets {
@@ -226,14 +233,14 @@ fn close_tree(root: Pid, dir: &Path, grace: Duration) {
         std::thread::sleep(Duration::from_millis(100));
         system.refresh_processes(ProcessesToUpdate::Some(&targets), true);
         if targets.iter().all(|pid| system.process(*pid).is_none()) {
-            return;
+            return format!("{} processes quit when asked", targets.len());
         }
     }
-    for pid in &targets {
-        if let Some(process) = system.process(*pid) {
-            process.kill();
-        }
-    }
+    let forced: Vec<String> = targets
+        .iter()
+        .filter_map(|pid| system.process(*pid).filter(|p| p.kill()).map(|p| format!("{pid} {}", p.name().to_string_lossy())))
+        .collect();
+    format!("{} processes, {} forced: {}", targets.len(), forced.len(), forced.join(", "))
 }
 
 /// The game's process, everything it started, and anything running from its folder.
@@ -311,7 +318,8 @@ mod tests {
         let root = Pid::from_u32(game.id());
         let started = game_processes(&mut system, root, Path::new("/no/such/folder"));
         assert!(started.len() >= 2, "{started:?}");
-        close_tree(root, Path::new("/no/such/folder"), Duration::from_millis(500));
+        let outcome = close_tree(root, Path::new("/no/such/folder"), Duration::from_millis(500));
+        assert!(outcome.contains(&format!("{} forced", started.len())), "{outcome}");
         assert!(game.wait().is_ok());
         system.refresh_processes(ProcessesToUpdate::All, true);
         assert!(started.iter().all(|pid| system.process(*pid).is_none_or(|p| p.status() == sysinfo::ProcessStatus::Zombie)), "left running");
