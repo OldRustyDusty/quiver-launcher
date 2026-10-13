@@ -14,6 +14,8 @@ export const bpNative = {
   /** Starts Big Picture's own controller reader (SDL3): "bp-pad" presses and "bp-pads" names. Listen first. */
   padsStart: () => invoke<void>("bp_pads_start"),
   padsStop: () => invoke<void>("bp_pads_stop"),
+  /** Whether holding Start + Select closes the game being played. */
+  closeCombo: (on: boolean) => invoke<void>("bp_close_combo", { on }),
   /** Fullscreen on this monitor (or stay where it is); resolves to the monitor used. */
   useMonitor: (name: string | null) => invoke<string | null>("bp_use_monitor", { name }),
   monitors: () => invoke<string[]>("bp_monitors"),

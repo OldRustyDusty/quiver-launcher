@@ -8,14 +8,18 @@
 //! A game that closes with an error before it really started, or crashes, is
 //! reported ("bp-game-failed") with the last telling line of its output, which
 //! goes to a log in the data folder instead of nowhere.
+//!
+//! A game with no way to quit can be closed from the controller (pads.rs: hold
+//! Start + Select): it and everything it started are asked to quit, then forced.
 use serde::Serialize;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ExitStatus, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, Signal, System, UpdateKind};
 use tauri::{AppHandle, Emitter};
 
 /// A newer game supersedes an older one's tracking.
@@ -24,6 +28,13 @@ static LATEST: AtomicU64 = AtomicU64::new(0);
 /// A process that exits sooner than this was a launcher stub (spec §11).
 const STUB_TIME: Duration = Duration::from_secs(10);
 const POLL: Duration = Duration::from_secs(2);
+
+/// The game being played: its session, process and folder.
+static PLAYING: Mutex<Option<(u64, u32, PathBuf)>> = Mutex::new(None);
+/// Big Picture's setting "Close a game with Start + Select".
+pub static CLOSE_COMBO: AtomicBool = AtomicBool::new(true);
+/// How long a game has to quit when asked, before it's forced.
+const GRACE: Duration = Duration::from_secs(3);
 
 /// Where a game's output goes: `game-logs/<folder>.log` in the data folder,
 /// started afresh at each launch.
@@ -58,6 +69,7 @@ struct Failure {
 /// Called with each game the launcher starts.
 pub fn track(app: &AppHandle, mut child: Child, dir: PathBuf, folder: String, log: GameLog) {
     let session = LATEST.fetch_add(1, Ordering::SeqCst) + 1;
+    *PLAYING.lock().unwrap() = Some((session, child.id(), dir.clone()));
     let _ = app.emit("bp-game-started", session);
     let app = app.clone();
     std::thread::Builder::new()
@@ -80,6 +92,7 @@ pub fn track(app: &AppHandle, mut child: Child, dir: PathBuf, folder: String, lo
                 let _ = app.emit("bp-game-failed", Failure { folder, message, early });
             }
             if LATEST.load(Ordering::SeqCst) == session {
+                PLAYING.lock().unwrap().take_if(|(s, _, _)| *s == session);
                 let _ = app.emit("bp-game-exited", session);
             }
         })
@@ -183,6 +196,72 @@ fn plain(line: &str) -> String {
     out.trim().to_string()
 }
 
+/// Big Picture's setting: whether holding Start + Select closes the game being played.
+#[tauri::command]
+pub fn bp_close_combo(on: bool) {
+    CLOSE_COMBO.store(on, Ordering::Relaxed);
+}
+
+/// Closes the game being played and everything it started (in the background);
+/// false when none is.
+pub fn close_game() -> bool {
+    let Some((_, pid, dir)) = PLAYING.lock().unwrap().clone() else { return false };
+    std::thread::Builder::new().name("bp-close-game".into()).spawn(move || close_tree(Pid::from_u32(pid), &dir, GRACE)).is_ok()
+}
+
+/// Asks the game's processes to quit, then forces whichever are left after `grace`.
+fn close_tree(root: Pid, dir: &Path, grace: Duration) {
+    let mut system = System::new();
+    let targets = game_processes(&mut system, root, dir);
+    for pid in &targets {
+        if let Some(process) = system.process(*pid) {
+            // Windows has no "please quit" signal for another program: it's forced there.
+            if process.kill_with(Signal::Term).is_none() {
+                process.kill();
+            }
+        }
+    }
+    let started = Instant::now();
+    while started.elapsed() < grace {
+        std::thread::sleep(Duration::from_millis(100));
+        system.refresh_processes(ProcessesToUpdate::Some(&targets), true);
+        if targets.iter().all(|pid| system.process(*pid).is_none()) {
+            return;
+        }
+    }
+    for pid in &targets {
+        if let Some(process) = system.process(*pid) {
+            process.kill();
+        }
+    }
+}
+
+/// The game's process, everything it started, and anything running from its folder.
+fn game_processes(system: &mut System, root: Pid, dir: &Path) -> Vec<Pid> {
+    system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet));
+    let me = Pid::from_u32(std::process::id());
+    let mut found = vec![root];
+    loop {
+        let more: Vec<Pid> = system
+            .processes()
+            .iter()
+            .filter(|(pid, p)| !found.contains(pid) && p.parent().is_some_and(|parent| found.contains(&parent)))
+            .map(|(pid, _)| *pid)
+            .collect();
+        if more.is_empty() {
+            break;
+        }
+        found.extend(more);
+    }
+    for (pid, p) in system.processes() {
+        if !found.contains(pid) && p.exe().is_some_and(|exe| inside(exe, dir)) {
+            found.push(*pid);
+        }
+    }
+    found.retain(|pid| *pid != me);
+    found
+}
+
 /// Whether any process is running a program from inside `dir`. Processes whose
 /// path can't be read (access denied) don't count.
 pub(crate) fn running_from(system: &mut System, dir: &Path) -> bool {
@@ -220,6 +299,22 @@ mod tests {
         let mut system = System::new();
         assert!(running_from(&mut system, exe.parent().unwrap()));
         assert!(!running_from(&mut system, Path::new(if cfg!(windows) { r"C:\no\such\folder" } else { "/no/such/folder" })));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn closing_a_game_ends_what_it_started_too() {
+        // A "game" that starts another process and ignores being asked to quit, so it has to be forced.
+        let mut game = std::process::Command::new("sh").args(["-c", "trap '' TERM; sleep 30 & wait"]).spawn().unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        let mut system = System::new();
+        let root = Pid::from_u32(game.id());
+        let started = game_processes(&mut system, root, Path::new("/no/such/folder"));
+        assert!(started.len() >= 2, "{started:?}");
+        close_tree(root, Path::new("/no/such/folder"), Duration::from_millis(500));
+        assert!(game.wait().is_ok());
+        system.refresh_processes(ProcessesToUpdate::All, true);
+        assert!(started.iter().all(|pid| system.process(*pid).is_none_or(|p| p.status() == sysinfo::ProcessStatus::Zombie)), "left running");
     }
 
     #[test]

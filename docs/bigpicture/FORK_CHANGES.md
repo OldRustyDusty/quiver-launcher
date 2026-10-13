@@ -41,3 +41,4 @@ Base: upstream `v4`. List every upstream file changed, why, and the commit. Fork
 | `apps/launcher/src-tauri/Cargo.toml` | `lzma-rs` (already in the build through zip's lzma feature) | .tar.xz | Linux |
 | `apps/launcher/src/assets.ts` | `.rar`, `.tar.xz` and `.elf` are formats the launcher installs | .rar: the installer unpacked it but no release file was ever picked (GoldenEye 007, Ace Combat, on every OS). The others: Linux builds | Linux |
 | `apps/launcher/src/store.tsx`, `apps/launcher/src/detail.tsx` | `programsFor(id, install)` (store), and the desktop and Steam shortcut buttons pass its programs as `preferred` | Shortcuts start the program Play would (Star Fox Enhanced: starfox_pc, not the asset builder) | Linux |
+| `apps/launcher/src-tauri/src/lib.rs` | register `bigpicture::session::bp_close_combo` | Big Picture's setting for closing a game with Start + Select (pads.rs, session.rs) | Close combo |

@@ -7,6 +7,10 @@
 //! gate decides when input counts. Presses go out as "bp-pad" events named as
 //! gilrs names them ("South", "DPadUp", "LeftTrigger" for LB, "LeftTrigger2"
 //! for LT…), with the pad's family for the glyphs; "bp-pads" lists the pads.
+//!
+//! Holding Start + Select on one pad for a second closes the game being played
+//! (session.rs), for games with no way to quit. The reader watches for it
+//! itself: the page may be held back while the game is in front.
 use sdl3_sys::events::*;
 use sdl3_sys::gamepad::*;
 use sdl3_sys::hints::*;
@@ -16,6 +20,7 @@ use std::ffi::CStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 #[derive(serde::Serialize, Clone)]
@@ -115,6 +120,14 @@ fn axis_keys(axis: u8) -> &'static [(&'static str, f32, f32, f32)] {
     }
 }
 
+/// How long Start + Select are held to close the game.
+const CLOSE_HOLD: Duration = Duration::from_secs(1);
+
+/// Whether one pad holds both Start and Select.
+fn holds_close_combo(held: &HashSet<(u32, &'static str)>) -> bool {
+    held.iter().any(|&(pad, key)| key == "Start" && held.contains(&(pad, "Select")))
+}
+
 fn read(app: AppHandle, on: Arc<AtomicBool>) {
     // SAFETY: every SDL call is on this one thread, between SDL_Init and SDL_Quit, and
     // the gamepads opened here are closed here.
@@ -140,8 +153,20 @@ fn read(app: AppHandle, on: Arc<AtomicBool>) {
         };
 
         let mut event: SDL_Event = std::mem::zeroed();
+        // Since when Start + Select have been held, and whether that hold has closed a game already.
+        let mut combo: Option<(Instant, bool)> = None;
         while on.load(Ordering::Relaxed) {
-            if !SDL_WaitEventTimeout(&mut event, 50) {
+            let got = SDL_WaitEventTimeout(&mut event, 50);
+            if !holds_close_combo(&held) {
+                combo = None;
+            } else if let Some((since, done)) = combo.as_mut() {
+                if !*done && since.elapsed() >= CLOSE_HOLD && super::session::CLOSE_COMBO.load(Ordering::Relaxed) && super::session::close_game() {
+                    *done = true;
+                }
+            } else {
+                combo = Some((Instant::now(), false));
+            }
+            if !got {
                 continue;
             }
             let kind = event.r#type;
@@ -199,6 +224,14 @@ mod tests {
         assert!(past(0.6, false, 0.55, 0.35));
         assert!(past(0.4, true, 0.55, 0.35), "held until it falls back past the release point");
         assert!(!past(0.3, true, 0.55, 0.35));
+    }
+
+    #[test]
+    fn the_close_combo_is_start_and_select_on_one_pad() {
+        let held = |keys: &[(u32, &'static str)]| keys.iter().copied().collect::<HashSet<_>>();
+        assert!(holds_close_combo(&held(&[(1, "Start"), (1, "Select"), (1, "South")])));
+        assert!(!holds_close_combo(&held(&[(1, "Start"), (2, "Select")])));
+        assert!(!holds_close_combo(&held(&[(1, "Start")])));
     }
 
     #[test]

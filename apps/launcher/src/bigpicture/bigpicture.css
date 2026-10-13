@@ -1106,6 +1106,17 @@
 .bp-search-chip span {
   color: var(--bp-muted);
 }
+/* The search button shown while nothing is searched: what View / Create does. */
+.bp-search-button {
+  color: var(--bp-muted);
+  border-color: #ffffff22;
+}
+.bp-search-button .bp-glyph {
+  margin-left: calc(var(--u) * 2);
+}
+.bp-root.bp-pointer .bp-search-button {
+  cursor: pointer;
+}
 .bp-osk-backdrop {
   position: fixed;
   inset: 0;

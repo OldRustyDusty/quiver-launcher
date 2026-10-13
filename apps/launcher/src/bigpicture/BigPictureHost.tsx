@@ -122,6 +122,10 @@ function BigPicture({ sidecar, debug, share, program }: { sidecar: SidecarStore;
     };
   }, []);
 
+  // Start + Select closes the game being played (pads.rs), unless the player turned it off.
+  const closeCombo = data.settings.closeGameCombo;
+  useEffect(() => void bpNative.closeCombo(closeCombo).catch(() => {}), [closeCombo]);
+
   // Fullscreen while showing; back to the player's own choice after.
   const desktopFullscreen = Boolean(launcher.settings.fullscreen);
   useEffect(() => {

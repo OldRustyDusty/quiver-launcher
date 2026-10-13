@@ -220,6 +220,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
     { kind: "choice", label: "Reduce motion", detail: "No zooming, sliding or sweeping", options: onOff, value: s.reduceMotion, set: set("reduceMotion") },
     {
       kind: "choice",
+      label: "Close a game with Start + Select",
+      detail: "Hold both for a second while a game runs, for games with no way to quit",
+      options: onOff,
+      value: s.closeGameCombo,
+      set: set("closeGameCombo"),
+    },
+    {
+      kind: "choice",
       label: "Screen",
       detail: "Which monitor Big Picture fills",
       options: [{ value: null, label: "Where Quiver is" }, ...monitors.map((m) => ({ value: m, label: m.replace(/^\\\\\.\\/, "") }))],
