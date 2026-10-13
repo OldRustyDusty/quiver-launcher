@@ -41,3 +41,22 @@ test("a file picked among several is found again in later releases", () => {
   // No part of its own: the whole name.
   expect(assetFilterFor("Game-1.0.zip", ["Game-1.0.zip", "GameDeluxe-1.0.zip"])).toBe("game-1.0.zip");
 });
+
+test("on Linux, takes the regular build over a Flatpak bundle (Big Picture fork)", () => {
+  const banjo = [
+    asset("BanjoRecompiled-v1.0.2-Linux-Flatpak-X64.zip", "linux"),
+    asset("BanjoRecompiled-v1.0.2-Linux-X64.tar.gz", "linux"),
+    asset("BanjoRecompiled-v1.0.2-Windows.zip", "windows", "unknown"),
+  ];
+  expect(bestAssets(banjo, "linux", "x64").map((a) => a.filename)).toEqual(["BanjoRecompiled-v1.0.2-Linux-X64.tar.gz"]);
+  const duke = [asset("DNZHRecompiled-0.0.3-Flatpak-X64-Release", "linux"), asset("DNZHRecompiled-0.0.3-Linux-X64-Release", "linux")];
+  expect(bestAssets(duke, "linux", "x64").map((a) => a.filename)).toEqual(["DNZHRecompiled-0.0.3-Linux-X64-Release"]);
+  expect(bestAssets([asset("Game-Flatpak.zip", "linux")], "linux", "x64")).toHaveLength(1);
+  expect(bestAssets([asset("Game-Flatpak.zip", "linux"), asset("Game-Linux.zip", "linux", "arm64")], "linux", "x64").map((a) => a.filename)).toEqual(["Game-Flatpak.zip"]);
+  expect(bestAssets(duke, "linux", "x64", "flatpak").map((a) => a.filename)).toEqual(["DNZHRecompiled-0.0.3-Flatpak-X64-Release"]);
+});
+
+test("a file with no extension counts, even with a version's dots in its name (Big Picture fork)", () => {
+  const files = [asset("Game-0.0.3-Linux-X64-Release", "linux"), asset("Game-0.0.3.deb", "linux"), asset("Game-0.0.3.x86_64", "linux")];
+  expect(bestAssets(files, "linux", "x64").map((a) => a.filename)).toEqual(["Game-0.0.3-Linux-X64-Release", "Game-0.0.3.x86_64"]);
+});

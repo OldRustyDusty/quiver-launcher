@@ -101,7 +101,9 @@ pub async fn install(
         let out = staging.join("out");
         let dir = target.clone();
         tokio::task::spawn_blocking(move || -> Result<(), String> {
-            extract(&file, &filename, &out)?;
+            // Big Picture (fork): a file named without its extension, and an archive inside the archive.
+            extract(&file, &crate::bigpicture::archives::named(&file, &filename), &out)?;
+            crate::bigpicture::archives::unwrap_inner(&out, extract)?;
             flatten(&out).map_err(text)?;
             // Marked as Quiver's before anything goes in, so an install cut short can still be retried or removed.
             fs::create_dir_all(&dir).map_err(text)?;

@@ -15,6 +15,8 @@ pub struct Programs {
     matched: Option<String>,
     /// Every program in the folder, relative to it, shallowest first.
     choices: Vec<String>,
+    /// A Flatpak bundle in the folder, which needs installing with Flatpak.
+    flatpak: Option<String>,
 }
 
 #[tauri::command]
@@ -24,11 +26,13 @@ pub fn bp_programs(data: State<Data>, folder: String, dir: Option<String>, hints
 }
 
 fn programs(dir: &Path, hints: &[String], os: &str) -> Programs {
-    let found: Vec<_> = app_files(dir).into_iter().filter(|p| is_program(p, os)).collect();
+    let files = app_files(dir);
+    let flatpak = files.iter().find(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("flatpak"))).map(|p| p.to_string_lossy().into_owned());
+    let found: Vec<_> = files.into_iter().filter(|p| is_program(p, os)).collect();
     let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().into_owned());
     let matched = crate::install::preferred_file(&found, hints).and_then(|p| name(&p));
     let choices = found.iter().filter_map(|p| p.strip_prefix(dir).ok()).map(|p| p.to_string_lossy().into_owned()).collect();
-    Programs { matched, choices }
+    Programs { matched, choices, flatpak }
 }
 
 #[cfg(all(test, unix))]
@@ -60,5 +64,13 @@ mod tests {
         let found = programs(dir.path(), &["game".into()], "linux");
         assert_eq!(found.matched, None);
         assert_eq!(found.choices.len(), 2);
+    }
+
+    #[test]
+    fn a_flatpak_bundle_is_found_but_isnt_a_program() {
+        let dir = folder(&[("io.github.banjorecomp.banjorecomp.flatpak", true), ("portable.txt", false)]);
+        let found = programs(dir.path(), &[], "linux");
+        assert!(found.choices.is_empty());
+        assert!(found.flatpak.is_some_and(|p| p.ends_with("banjorecomp.flatpak")));
     }
 }

@@ -4,9 +4,14 @@ import type { Asset, Os } from "@quiverlauncher/api";
 const AUXILIARY =
   /\.(json|sha\d*|md5|sig|asc|minisig|pdb|txt)$|(^|[._-])(checksums?|sha\d*sums?|source|src|debug|symbols)([._-]|$)/i;
 /** What the launcher can install, best first. */
-const FORMATS = [/\.zip$/i, /\.7z$/i, /\.(tar\.gz|tgz)$/i, /\.appimage$/i, /\.exe$/i, /^[^.]+$/];
+// Big Picture (fork): the last is a file with no extension, where a version's dots don't count
+// ("DNZHRecompiled-0.0.3-Linux-X64-Release"); upstream's /^[^.]+$/ refused those.
+const FORMATS = [/\.zip$/i, /\.7z$/i, /\.(tar\.gz|tgz)$/i, /\.appimage$/i, /\.exe$/i, /^(?!.*\.[a-z0-9]{1,8}$)/i];
 
 const formatRank = (name: string) => FORMATS.findIndex((f) => f.test(name));
+
+/** Big Picture (fork): a Flatpak bundle (often zipped) needs installing with Flatpak, not unpacking. */
+const FLATPAK = /(^|[\s._-])flatpak([\s._-]|$)/i;
 
 /**
  * The release files that suit this computer, narrowed to the best match.
@@ -22,9 +27,10 @@ export function bestAssets(assets: Asset[], os: Os, arch: string, filter?: strin
   // Linux runs Windows builds through Wine when there's no Linux build.
   const fallbacks: Os[] = os === "linux" ? ["unknown", "windows"] : ["unknown"];
   const forOs = [os, ...fallbacks].map((o) => usable.filter((a) => a.os === o)).find((list) => list.length) ?? [];
-  const ranked = forOs
-    .filter((a) => !wanted || a.filename.toLowerCase().includes(wanted))
-    .filter((a) => archRank(a) >= 0)
+  const fitting = forOs.filter((a) => !wanted || a.filename.toLowerCase().includes(wanted)).filter((a) => archRank(a) >= 0);
+  // Big Picture (fork): on Linux, a Flatpak bundle only when nothing else fits.
+  const plain = fitting.filter((a) => !FLATPAK.test(a.filename));
+  const ranked = (os === "linux" && plain.length ? plain : fitting)
     .map((a) => ({ a, rank: archRank(a) * FORMATS.length + formatRank(a.filename) }))
     .sort((x, y) => x.rank - y.rank);
   return ranked.filter((r) => r.rank === ranked[0].rank).map((r) => r.a);

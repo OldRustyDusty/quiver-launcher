@@ -15,6 +15,9 @@ export type ProgramChoice = { title: string; choices: string[]; resolve: (choice
 
 type Failure = { folder: string; message: string; early: boolean };
 
+const flatpakMessage = (bundle: string) =>
+  `What was downloaded is a Flatpak bundle, which Big Quiver can't start. Uninstall it and get it again: Big Quiver now picks the regular Linux download when there is one. Or install the bundle yourself: flatpak install --user "${bundle}"`;
+
 export function usePrograms(sidecar: SidecarStore | null): ProgramChoice | null {
   const launcher = useLauncher();
   const latest = useRef(launcher);
@@ -33,6 +36,10 @@ export function usePrograms(sidecar: SidecarStore | null): ProgramChoice | null 
       const found = await bpNative.programs(install.folder, install.dir, hints).catch(() => null);
       if (!found) return install.executables;
       if (found.matched) return [literal(found.matched)];
+      if (!found.choices.length && found.flatpak) {
+        latest.current.fail(id, flatpakMessage(found.flatpak));
+        return null;
+      }
       // One program or none: upstream's own search finds it, or says there's none.
       if (found.choices.length < 2) return install.executables;
       const title = entry?.projectName || entry?.name || "this game";
