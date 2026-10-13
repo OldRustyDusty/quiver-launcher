@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowUpCircle, Clock, Download, Gamepad2 } from "lucide-react";
 import type { BpApp } from "../bridge";
 import { versionLabel } from "../../versions";
+import { useFitted } from "../art/fitted";
 
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 /** "Played today", "Played 3 days ago", "Played last month". */
@@ -18,8 +19,11 @@ export function playedLabel(at: number, now = Date.now()) {
 export function GameLogo({ app, className = "" }: { app: BpApp; className?: string }) {
   const [failed, setFailed] = useState<string | null>(null);
   const logo = app.art.logo && failed !== app.art.logo ? app.art.logo : null;
-  return logo ? (
-    <img className={`bp-logo ${className}`} src={logo} alt={app.title} onError={() => setFailed(logo)} />
+  // An oversized logo is shown from its smaller copy (art/fitted.ts); nothing until its size is known.
+  const src = useFitted(logo);
+  if (logo && !src) return null;
+  return logo && src ? (
+    <img className={`bp-logo ${className}`} src={src} alt={app.title} onError={() => setFailed(logo)} />
   ) : (
     <h1 className={`bp-title ${className}`}>{app.title}</h1>
   );

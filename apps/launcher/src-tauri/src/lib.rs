@@ -561,7 +561,8 @@ pub fn run() {
             bigpicture::v3share::bp_has_desktop_shortcut,
             bigpicture::v3share::bp_make_folder,
             bigpicture::programs::bp_programs,
-            bigpicture::session::bp_close_combo
+            bigpicture::session::bp_close_combo,
+            bigpicture::art::bp_fit_art
         ])
         .run(tauri::generate_context!())
         .expect("error while running Quiver Launcher");
