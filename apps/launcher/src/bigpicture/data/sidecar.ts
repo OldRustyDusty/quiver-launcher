@@ -26,6 +26,8 @@ export type BpSettings = {
   afterGet: AfterGet;
   /** Holding Start + Select for a second closes the game being played (src-tauri/src/bigpicture/pads.rs). */
   closeGameCombo: boolean;
+  /** Linux: while a game runs, holding Select makes the right stick a mouse pointer (src-tauri/src/bigpicture/pointer.rs). */
+  pointerWithSelect: boolean;
 };
 
 /** A picture of the player's own, by URL or file path, in place of the catalog's. */
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: BpSettings = {
   reduceMotion: false,
   afterGet: "stay",
   closeGameCombo: true,
+  pointerWithSelect: true,
 };
 
 type Raw = Record<string, unknown>;
@@ -104,6 +107,7 @@ function settingsFrom(raw: unknown): BpSettings {
     reduceMotion: bool(s.reduceMotion, d.reduceMotion),
     afterGet: oneOf(s.afterGet, ["stay", "library"], d.afterGet),
     closeGameCombo: bool(s.closeGameCombo, d.closeGameCombo),
+    pointerWithSelect: bool(s.pointerWithSelect, d.pointerWithSelect),
   };
 }
 

@@ -46,6 +46,8 @@ sdl3-sys = { version = "0.7.2", default-features = false, features = ["build-fro
 # Linux: controllers come straight from udev, so SDL is built without video (no X11 or Wayland libraries needed).
 [target.'cfg(target_os = "linux")'.dependencies]
 sdl3-sys = { version = "0.7.2", default-features = false, features = ["build-from-source-static", "no-sdl-audio", "no-sdl-camera", "no-sdl-gpu", "no-sdl-render", "no-sdl-dialog", "no-sdl-tray", "no-sdl-video", "sdl-unix-console-build"] }
+# The pointer from the controller (src/bigpicture/pointer.rs): uinput ioctls. Already in the build through other crates.
+libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 mslnk = "0.1"

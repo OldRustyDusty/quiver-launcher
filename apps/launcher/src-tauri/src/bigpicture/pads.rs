@@ -11,6 +11,9 @@
 //! Holding Start + Select on one pad for a second closes the game being played
 //! (session.rs), for games with no way to quit. The reader watches for it
 //! itself: the page may be held back while the game is in front.
+//!
+//! On Linux, while a game runs, holding Select makes the right stick a mouse
+//! pointer (pointer.rs), for launchers that only take the mouse.
 use sdl3_sys::events::*;
 use sdl3_sys::gamepad::*;
 use sdl3_sys::hints::*;
@@ -123,6 +126,12 @@ fn axis_keys(axis: u8) -> &'static [(&'static str, f32, f32, f32)] {
 /// How long Start + Select are held to close the game.
 const CLOSE_HOLD: Duration = Duration::from_secs(1);
 
+/// The pad holding Select, which steers the pointer.
+#[cfg(target_os = "linux")]
+fn pointer_pad(held: &HashSet<(u32, &'static str)>) -> Option<u32> {
+    held.iter().find(|&&(_, key)| key == "Select").map(|&(pad, _)| pad)
+}
+
 /// Whether one pad holds both Start and Select.
 fn holds_close_combo(held: &HashSet<(u32, &'static str)>) -> bool {
     held.iter().any(|&(pad, key)| key == "Start" && held.contains(&(pad, "Select")))
@@ -155,10 +164,56 @@ fn read(app: AppHandle, on: Arc<AtomicBool>) {
         let mut event: SDL_Event = std::mem::zeroed();
         // Since when Start + Select have been held, and whether that hold has acted already.
         let mut combo: Option<(Instant, bool)> = None;
+        // The pointer from the controller (Linux): each pad's right stick and left stick's y, as SDL reports them.
+        #[cfg(target_os = "linux")]
+        let mut sticks: HashMap<u32, (f32, f32, f32)> = HashMap::new();
+        #[cfg(target_os = "linux")]
+        let mut mouse: Option<super::pointer::VirtualMouse> = None;
+        #[cfg(target_os = "linux")]
+        let mut mouse_failed = false;
+        #[cfg(target_os = "linux")]
+        let mut clicks = (false, false);
+        let mut tick = Instant::now();
         // What the combo did, in quiver.log: Game Mode can't be watched any other way.
         let log = |line: &str| crate::append_log(&app.state::<crate::Data>().0.join("quiver.log"), line);
         while on.load(Ordering::Relaxed) {
-            let got = SDL_WaitEventTimeout(&mut event, 50);
+            #[cfg(target_os = "linux")]
+            let steering = mouse.is_some() && clicks != (false, false) || pointer_pad(&held).is_some();
+            #[cfg(not(target_os = "linux"))]
+            let steering = false;
+            // Smooth pointer movement while it's steered; otherwise wait longer.
+            let got = SDL_WaitEventTimeout(&mut event, if steering { 8 } else { 50 });
+            #[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+            let seconds = tick.elapsed().as_secs_f32().min(0.05);
+            tick = Instant::now();
+            #[cfg(target_os = "linux")]
+            {
+                use super::pointer::{BTN_LEFT, BTN_RIGHT};
+                use super::session::POINTER;
+                let pad = pointer_pad(&held).filter(|_| POINTER.load(Ordering::Relaxed) && super::session::playing());
+                if pad.is_some() && mouse.is_none() && !mouse_failed {
+                    match super::pointer::VirtualMouse::new() {
+                        Ok(m) => mouse = Some(m),
+                        Err(e) => {
+                            mouse_failed = true;
+                            log(&format!("The pointer from the controller is unavailable: {e}"));
+                        }
+                    }
+                }
+                if let Some(m) = mouse.as_mut() {
+                    let wanted = pad.map_or((false, false), |p| (held.contains(&(p, "RightTrigger2")), held.contains(&(p, "LeftTrigger2"))));
+                    if wanted.0 != clicks.0 {
+                        m.button(BTN_LEFT, wanted.0);
+                    }
+                    if wanted.1 != clicks.1 {
+                        m.button(BTN_RIGHT, wanted.1);
+                    }
+                    clicks = wanted;
+                    if let Some(&(x, y, scroll)) = pad.and_then(|p| sticks.get(&p)) {
+                        m.steer((x, y), scroll, seconds);
+                    }
+                }
+            }
             if !holds_close_combo(&held) {
                 combo = None;
             } else if let Some((since, done)) = combo.as_mut() {
@@ -211,6 +266,18 @@ fn read(app: AppHandle, on: Arc<AtomicBool>) {
                 let Some((_, family, _)) = pads.get(&a.which.0) else { continue };
                 let family = *family;
                 let value = a.value as f32 / 32767.0;
+                #[cfg(target_os = "linux")]
+                {
+                    let stick = sticks.entry(a.which.0).or_default();
+                    let axis = SDL_GamepadAxis(a.axis as i32);
+                    if axis == SDL_GAMEPAD_AXIS_RIGHTX {
+                        stick.0 = value;
+                    } else if axis == SDL_GAMEPAD_AXIS_RIGHTY {
+                        stick.1 = value;
+                    } else if axis == SDL_GAMEPAD_AXIS_LEFTY {
+                        stick.2 = value;
+                    }
+                }
                 for &(key, sign, press, release) in axis_keys(a.axis) {
                     let down = past(value * sign, held.contains(&(a.which.0, key)), press, release);
                     send(&mut held, a.which.0, key, down, family);

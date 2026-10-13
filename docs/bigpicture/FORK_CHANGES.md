@@ -43,3 +43,5 @@ Base: upstream `v4`. List every upstream file changed, why, and the commit. Fork
 | `apps/launcher/src/store.tsx`, `apps/launcher/src/detail.tsx` | `programsFor(id, install)` (store), and the desktop and Steam shortcut buttons pass its programs as `preferred` | Shortcuts start the program Play would (Star Fox Enhanced: starfox_pc, not the asset builder) | Linux |
 | `apps/launcher/src-tauri/src/lib.rs` | register `bigpicture::session::bp_close_combo` | Big Picture's setting for closing a game with Start + Select (pads.rs, session.rs) | Close combo |
 | `apps/launcher/src-tauri/src/lib.rs` | register `bigpicture::art::bp_fit_art` | Oversized artwork made smaller once (LEGO Island's 18106 x 4509 logo lagged Details on WebKitGTK) | Art |
+| `apps/launcher/src-tauri/src/lib.rs` | register `bigpicture::session::bp_pointer` | Big Picture's setting for the mouse pointer from the controller (pointer.rs, Linux) | Pointer |
+| `apps/launcher/src-tauri/Cargo.toml` | `libc` for Linux (already in the build through other crates) | uinput ioctls for the virtual mouse (pointer.rs) | Pointer |

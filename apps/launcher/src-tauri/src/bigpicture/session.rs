@@ -196,6 +196,19 @@ fn plain(line: &str) -> String {
     out.trim().to_string()
 }
 
+/// Big Picture's setting "Mouse pointer with Select" (pointer.rs, Linux).
+pub static POINTER: AtomicBool = AtomicBool::new(true);
+
+#[tauri::command]
+pub fn bp_pointer(on: bool) {
+    POINTER.store(on, Ordering::Relaxed);
+}
+
+/// Whether a game started from Big Picture is running.
+pub fn playing() -> bool {
+    PLAYING.lock().unwrap().is_some()
+}
+
 /// Big Picture's setting: whether holding Start + Select closes the game being played.
 #[tauri::command]
 pub fn bp_close_combo(on: bool) {

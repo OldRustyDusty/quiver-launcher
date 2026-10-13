@@ -18,6 +18,8 @@ export const bpNative = {
   fitArt: (url: string) => invoke<ArrayBuffer>("bp_fit_art", { url }),
   /** Whether holding Start + Select closes the game being played. */
   closeCombo: (on: boolean) => invoke<void>("bp_close_combo", { on }),
+  /** Linux: whether holding Select makes the right stick a mouse pointer while a game runs. */
+  pointer: (on: boolean) => invoke<void>("bp_pointer", { on }),
   /** Fullscreen on this monitor (or stay where it is); resolves to the monitor used. */
   useMonitor: (name: string | null) => invoke<string | null>("bp_use_monitor", { name }),
   monitors: () => invoke<string[]>("bp_monitors"),

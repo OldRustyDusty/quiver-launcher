@@ -226,6 +226,18 @@ export function Settings({ onClose }: { onClose: () => void }) {
       value: s.closeGameCombo,
       set: set("closeGameCombo"),
     },
+    ...(bridge.config.os === "linux"
+      ? [
+          {
+            kind: "choice" as const,
+            label: "Mouse pointer with Select",
+            detail: "While a game runs, hold Select: right stick moves the pointer, RT clicks, LT right-clicks, left stick scrolls",
+            options: onOff,
+            value: s.pointerWithSelect,
+            set: set("pointerWithSelect"),
+          },
+        ]
+      : []),
     {
       kind: "choice",
       label: "Screen",

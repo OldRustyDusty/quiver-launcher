@@ -10,6 +10,8 @@ mod pads;
 pub mod archives;
 pub mod art;
 pub mod hostenv;
+#[cfg(target_os = "linux")]
+pub mod pointer;
 pub mod programs;
 pub mod proton;
 pub mod session;
