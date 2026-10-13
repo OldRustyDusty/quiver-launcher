@@ -31,6 +31,8 @@ fn dirs_in(log: &str) -> Vec<PathBuf> {
 mod tests {
     use super::*;
 
+    // Velopack's log, and its Windows paths, only exist on Windows.
+    #[cfg(windows)]
     #[test]
     fn finds_each_folder_once_latest_first() {
         let log = "\

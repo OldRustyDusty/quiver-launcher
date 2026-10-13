@@ -680,7 +680,9 @@ mod tests {
             { "name": "Mine", "folderName": "Mine", "installPath": "E:\\Apps\\Mine\\" },
             { "name": "Repo", "folderName": "Repo", "installPath": "E:\\Apps\\Mine\\", "repository": "a/b" }
         ]});
-        let here = V3Match { catalog_entry_id: None, repository: None, provider: "github".into(), install_path: Some("e:/apps/mine".replace('/', "\\")) };
+        // Windows paths match without regard to case; elsewhere they match exactly.
+        let path = if cfg!(windows) { "e:/apps/mine".replace('/', "\\") } else { "E:\\Apps\\Mine".to_string() };
+        let here = V3Match { catalog_entry_id: None, repository: None, provider: "github".into(), install_path: Some(path) };
         let gone = V3Change::Remove { r#match: here.clone(), install_path: "E:\\Apps\\Mine".into() };
         assert!(apply(&mut doc, &[gone]).unwrap());
         assert_eq!(doc["apps"].as_array().unwrap().len(), 1, "only the app without a repository");
