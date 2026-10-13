@@ -172,6 +172,8 @@ fn launch(app: tauri::AppHandle, data: State<Data>, folder: String, dir: Option<
     if target.extract_appimage {
         command.env("APPIMAGE_EXTRACT_AND_RUN", "1");
     }
+    // Big Picture (fork): the game gets the system's environment, not the AppImage's.
+    bigpicture::hostenv::restore(&mut command);
     command
         .current_dir(&target.dir)
         // The game outlives the launcher's console; it shouldn't hold it open.
