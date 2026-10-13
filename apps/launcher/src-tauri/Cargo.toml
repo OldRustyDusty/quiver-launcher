@@ -38,8 +38,12 @@ tauri-plugin-dialog = "2"
 sysinfo = { version = "0.39", default-features = false, features = ["system", "disk"] }
 
 # Big Picture (fork): controllers through SDL3, built from source and linked in (src/bigpicture/pads.rs).
-[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+[target.'cfg(target_os = "windows")'.dependencies]
 sdl3-sys = { version = "0.7.2", default-features = false, features = ["build-from-source-static", "no-sdl-audio", "no-sdl-camera", "no-sdl-gpu", "no-sdl-render", "no-sdl-dialog", "no-sdl-tray"] }
+
+# Linux: controllers come straight from udev, so SDL is built without video (no X11 or Wayland libraries needed).
+[target.'cfg(target_os = "linux")'.dependencies]
+sdl3-sys = { version = "0.7.2", default-features = false, features = ["build-from-source-static", "no-sdl-audio", "no-sdl-camera", "no-sdl-gpu", "no-sdl-render", "no-sdl-dialog", "no-sdl-tray", "no-sdl-video"] }
 
 [target.'cfg(windows)'.dependencies]
 mslnk = "0.1"
