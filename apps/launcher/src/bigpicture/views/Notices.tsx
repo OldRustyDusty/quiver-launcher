@@ -23,7 +23,7 @@ export function Notices() {
     for (const app of bridge.apps) {
       // Errors already there when Big Picture opened aren't news.
       if (was && app.state === "error" && was.get(app.id) !== "error")
-        fresh.push({ key: ++next.current, title: app.installedVersion ? `${app.title} didn't start` : `${app.title} didn't install`, text: app.error ?? "" });
+        fresh.push({ key: ++next.current, title: !app.installedVersion ? `${app.title} didn't install` : app.error?.startsWith("It crashed") ? `${app.title} crashed` : `${app.title} didn't start`, text: app.error ?? "" });
     }
     before.current = new Map(bridge.apps.map((a) => [a.id, a.state]));
     if (!fresh.length) return;

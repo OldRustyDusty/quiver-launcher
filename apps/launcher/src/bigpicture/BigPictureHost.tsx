@@ -28,6 +28,8 @@ import { Notices } from "./views/Notices";
 import { ControllerToast } from "./ControllerToast";
 import { useShare, type Share } from "./share/useShare";
 import { ShareDialogBp, ShareDialogDesktop } from "./share/ShareDialog";
+import { usePrograms, type ProgramChoice } from "./programs/usePrograms";
+import { ProgramPickerBp, ProgramPickerDesktop } from "./programs/ProgramPicker";
 import "./bigpicture.css";
 
 const io = { read: bpNative.readSidecar, write: bpNative.writeSidecar };
@@ -38,6 +40,8 @@ export function BigPictureHost({ children }: { children: ReactNode }) {
   const [debug, setDebug] = useState(false);
   // "Use the same games folder as Quiver 3": asks and keeps working in both modes.
   const share = useShare(sidecar);
+  // Which program starts a game when the catalog doesn't say, and games that fail after starting: both modes.
+  const program = usePrograms(sidecar);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,9 +61,10 @@ export function BigPictureHost({ children }: { children: ReactNode }) {
       <div className="bp-desktop" inert={open}>
         {children}
       </div>
-      {open && sidecar && <BigPicture sidecar={sidecar} debug={debug} share={share} />}
+      {open && sidecar && <BigPicture sidecar={sidecar} debug={debug} share={share} program={program} />}
       {!open && sidecar && <ControllerToast enabled={sidecar.settings.offerBigPictureOnControllerConnect} />}
       {!open && <ShareDialogDesktop share={share} />}
+      {!open && <ProgramPickerDesktop choice={program} />}
     </>
   );
 }
@@ -74,7 +79,7 @@ function useWindowHeight() {
   return height;
 }
 
-function BigPicture({ sidecar, debug, share }: { sidecar: SidecarStore; debug: boolean; share: Share }) {
+function BigPicture({ sidecar, debug, share, program }: { sidecar: SidecarStore; debug: boolean; share: Share; program: ProgramChoice | null }) {
   const launcher = useLauncher();
   const store = useBridge();
   const data = useSyncExternalStore(sidecar.subscribe, () => sidecar.snapshot);
@@ -262,6 +267,7 @@ function BigPicture({ sidecar, debug, share }: { sidecar: SidecarStore; debug: b
         <Shell />
         {flow.ui}
         <AssetPicker />
+        <ProgramPickerBp choice={program} />
         <Notices />
         <ShareDialogBp share={share} />
         {debug && (

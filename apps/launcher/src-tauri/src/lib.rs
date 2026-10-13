@@ -174,15 +174,17 @@ fn launch(app: tauri::AppHandle, data: State<Data>, folder: String, dir: Option<
     }
     // Big Picture (fork): the game gets the system's environment, not the AppImage's.
     bigpicture::hostenv::restore(&mut command);
+    // Big Picture (fork): the game's output goes to a log, so a failure can say why.
+    let log = bigpicture::session::GameLog::new(&data.0, &folder);
     command
         .current_dir(&target.dir)
         // The game outlives the launcher's console; it shouldn't hold it open.
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdout(log.stdio())
+        .stderr(log.stdio())
         .spawn()
         // Big Picture (fork) watches for the game ending.
-        .map(|child| bigpicture::session::track(&app, child, target.dir.clone()))
+        .map(|child| bigpicture::session::track(&app, child, target.dir.clone(), folder.clone(), log))
         .map_err(|e| match e.kind() {
             std::io::ErrorKind::NotFound if wine => "This is a Windows app. Install Wine to play it on Linux.".into(),
             // A downloaded AppImage or program isn't executable until it's allowed to run.
@@ -554,7 +556,8 @@ pub fn run() {
             bigpicture::v3share::bp_trash_game,
             bigpicture::v3share::bp_move_game,
             bigpicture::v3share::bp_has_desktop_shortcut,
-            bigpicture::v3share::bp_make_folder
+            bigpicture::v3share::bp_make_folder,
+            bigpicture::programs::bp_programs
         ])
         .run(tauri::generate_context!())
         .expect("error while running Quiver Launcher");

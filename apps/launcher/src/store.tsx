@@ -128,6 +128,8 @@ type Launcher = {
   notice: string | null;
   setNotice: (notice: string | null) => void;
   dismiss: (id: string) => void;
+  /** Big Picture (fork): shows an app's failure, as a launch that failed shows (such as a game that crashed). */
+  fail: (id: string, error: string) => void;
 };
 
 const LauncherContext = createContext<Launcher | null>(null);
@@ -137,6 +139,9 @@ export const useLauncher = () => useContext(LauncherContext)!;
 /** Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): where a new install goes instead of the apps folder (Quiver 3's games folder); undefined keeps the apps folder. */
 let newInstallDir: ((entry: Entry, folder: string) => Promise<string | undefined>) | null = null;
 export const setNewInstallDir = (choose: typeof newInstallDir) => void (newInstallDir = choose);
+/** Big Picture (fork): the programs to look for when an app starts, or null when the player cancelled. Unset: its own executables. */
+let launchPrograms: ((id: string, install: Install) => Promise<string[] | null>) | null = null;
+export const setLaunchPrograms = (choose: typeof launchPrograms) => void (launchPrograms = choose);
 /** Big Picture (fork): where a new folder you fill is made instead of the apps folder (Quiver 3's games folder). */
 let newLocalFolder: ((name: string) => Promise<string | undefined>) | null = null;
 let newLocalFolderHome: string | null = null;
@@ -629,9 +634,11 @@ function LauncherState({ saved, children }: { saved: Saved; children: ReactNode 
     async play(id) {
       const install = installs[id];
       if (!install) return;
+      const preferred = launchPrograms ? await launchPrograms(id, install) : install.executables;
+      if (!preferred) return;
       setInstalls((i) => ({ ...i, [id]: { ...i[id], lastPlayed: Date.now() } }));
       const ref = appRef(id, catalog[id]?.slug ?? allItems.find((i) => i.id === id)?.slug ?? "");
-      await native.launch(install.folder, install.dir, install.executables, Boolean(install.wine), install.program).then(
+      await native.launch(install.folder, install.dir, preferred, Boolean(install.wine), install.program).then(
         () => track("app_launched", ref),
         (e) => (fail(id, e), track("app_launch_failed", { ...ref, reason: reasonOf(e) })),
       );
@@ -689,6 +696,7 @@ function LauncherState({ saved, children }: { saved: Saved; children: ReactNode 
       return missing;
     },
     dismiss: (id) => setJobs(({ [id]: _, ...rest }) => rest),
+    fail,
   };
   return <LauncherContext.Provider value={value}>{children}</LauncherContext.Provider>;
 }

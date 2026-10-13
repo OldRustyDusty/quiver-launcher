@@ -8,6 +8,7 @@ use super::Data;
 #[cfg(any(windows, target_os = "linux"))]
 mod pads;
 pub mod hostenv;
+pub mod programs;
 pub mod session;
 pub mod v3;
 pub mod v3share;

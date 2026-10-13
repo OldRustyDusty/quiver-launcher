@@ -17,6 +17,9 @@ export const bpNative = {
   /** Fullscreen on this monitor (or stay where it is); resolves to the monitor used. */
   useMonitor: (name: string | null) => invoke<string | null>("bp_use_monitor", { name }),
   monitors: () => invoke<string[]>("bp_monitors"),
+  /** The programs in a game's folder (relative paths), and the file name of the first one matching `hints` (programs/programs.ts). */
+  programs: (folder: string, dir: string | undefined, hints: string[]) =>
+    invoke<{ matched: string | null; choices: string[] }>("bp_programs", { folder, dir, hints }),
 
   // "Use the same games folder as Quiver 3" (src-tauri/src/bigpicture/v3share.rs).
   /** Quiver 3's library, its games folder, and whether it's open; null without one. */

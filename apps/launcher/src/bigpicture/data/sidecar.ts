@@ -39,6 +39,8 @@ export type BpAppState = {
   skippedVersion?: string;
   /** The release file the player picked when several fit. */
   assetPattern?: string;
+  /** The program the player picked to start it, when its folder has several (file name; programs/programs.ts). */
+  program?: string;
   art?: BpArt;
 };
 

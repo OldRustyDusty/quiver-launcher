@@ -270,26 +270,43 @@ fn merge(from: &Path, to: &Path) -> io::Result<()> {
 /// The program to start: the first file matching the catalog's preferred
 /// executables, else the likeliest program, shallowest first.
 pub fn find_executable(dir: &Path, preferred: &[String], os: &str) -> Option<PathBuf> {
+    let files = app_files(dir);
+    preferred_file(&files, preferred).or_else(|| files.into_iter().find(|p| is_program(p, os)))
+}
+
+/// Every file in an app's folder, shallowest first.
+pub(crate) fn app_files(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     walk(dir, 0, &mut files);
     files.sort_by_key(|p| (p.components().count(), p.to_string_lossy().to_lowercase()));
-    let name = |p: &PathBuf| p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    files
+}
+
+fn lower_name(p: &Path) -> String {
+    p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default()
+}
+
+/// The first file matching the catalog's preferred executables, in their order.
+pub(crate) fn preferred_file(files: &[PathBuf], preferred: &[String]) -> Option<PathBuf> {
     for pattern in preferred {
         let Ok(glob) = glob::Pattern::new(&pattern.to_lowercase()) else { continue };
-        if let Some(hit) = files.iter().find(|p| glob.matches(&name(p))) {
+        if let Some(hit) = files.iter().find(|p| glob.matches(&lower_name(p))) {
             return Some(hit.clone());
         }
     }
+    None
+}
+
+/// A program for `os`, not an uninstaller or another helper.
+pub(crate) fn is_program(p: &Path, os: &str) -> bool {
     const HELPERS: [&str; 6] = ["unins", "crash", "vc_redist", "dxsetup", "setup", "updater"];
-    files.into_iter().find(|p| {
-        let n = name(p);
-        let program = match os {
-            "windows" => n.ends_with(".exe"),
-            "macos" => n.ends_with(".app"),
-            _ => n.ends_with(".appimage") || n.ends_with(".x86_64") || n.ends_with(".sh") || is_unix_binary(p),
-        };
-        program && !HELPERS.iter().any(|h| n.starts_with(h))
-    })
+    let n = lower_name(p);
+    let program = match os {
+        "windows" => n.ends_with(".exe"),
+        "macos" => n.ends_with(".app"),
+        _ => n.ends_with(".appimage") || n.ends_with(".x86_64") || n.ends_with(".sh") || is_unix_binary(p),
+    };
+    program && !HELPERS.iter().any(|h| n.starts_with(h))
 }
 
 fn walk(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
