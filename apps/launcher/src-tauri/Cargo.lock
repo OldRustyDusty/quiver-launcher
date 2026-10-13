@@ -3308,6 +3308,7 @@ dependencies = [
  "hex",
  "image",
  "keyring",
+ "lzma-rs",
  "mslnk",
  "open",
  "reqwest 0.12.28",

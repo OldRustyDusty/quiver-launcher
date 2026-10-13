@@ -167,8 +167,11 @@ fn target(data: &Data, folder: &str, dir: Option<String>, preferred: &[String], 
 #[tauri::command]
 fn launch(app: tauri::AppHandle, data: State<Data>, folder: String, dir: Option<String>, preferred: Vec<String>, wine: bool, program: Option<String>) -> Result<(), String> {
     let target = target(&data, &folder, dir, &preferred, wine, program)?;
-    let mut command = Command::new(&target.program);
+    // Big Picture (fork): Windows games through umu-run (Proton) when Wine isn't installed, as on Bazzite.
+    let (runner, runner_env) = bigpicture::proton::runner(&target.program, &data.0, &folder);
+    let mut command = Command::new(&runner);
     command.args(&target.args);
+    command.envs(runner_env);
     if target.extract_appimage {
         command.env("APPIMAGE_EXTRACT_AND_RUN", "1");
     }
@@ -186,7 +189,7 @@ fn launch(app: tauri::AppHandle, data: State<Data>, folder: String, dir: Option<
         // Big Picture (fork) watches for the game ending.
         .map(|child| bigpicture::session::track(&app, child, target.dir.clone(), folder.clone(), log))
         .map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound if wine => "This is a Windows app. Install Wine to play it on Linux.".into(),
+            std::io::ErrorKind::NotFound if wine => "This is a Windows app. Install Wine (or umu-launcher) to play it on Linux, or add it to Steam to run it with Proton.".into(),
             // A downloaded AppImage or program isn't executable until it's allowed to run.
             std::io::ErrorKind::PermissionDenied if OS != "windows" => format!(
                 "{} isn't allowed to run as a program. Allow it in its file properties (Permissions), or run chmod +x on it, then press Play again.",

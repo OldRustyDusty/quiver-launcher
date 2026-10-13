@@ -60,3 +60,11 @@ test("a file with no extension counts, even with a version's dots in its name (B
   const files = [asset("Game-0.0.3-Linux-X64-Release", "linux"), asset("Game-0.0.3.deb", "linux"), asset("Game-0.0.3.x86_64", "linux")];
   expect(bestAssets(files, "linux", "x64").map((a) => a.filename)).toEqual(["Game-0.0.3-Linux-X64-Release", "Game-0.0.3.x86_64"]);
 });
+
+test("takes .rar, .tar.xz and .elf builds (Big Picture fork)", () => {
+  expect(bestAssets([asset("GoldenEye-Windows.rar", "windows")], "windows", "x64")).toHaveLength(1);
+  const taisei = [asset("Taisei-1.4.6-linux-x86_64.tar.xz", "linux"), asset("Taisei-1.4.6-windows-x86_64.zip", "windows")];
+  expect(bestAssets(taisei, "linux", "x64").map((a) => a.filename)).toEqual(["Taisei-1.4.6-linux-x86_64.tar.xz"]);
+  const doukutsu = [asset("doukutsu-rs_linux_1.0.0.x86_64.elf", "linux"), asset("doukutsu-rs_windows_1.0.0.x86_64.exe", "windows")];
+  expect(bestAssets(doukutsu, "linux", "x64").map((a) => a.filename)).toEqual(["doukutsu-rs_linux_1.0.0.x86_64.elf"]);
+});

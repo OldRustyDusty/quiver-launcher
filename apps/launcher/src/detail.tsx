@@ -8,7 +8,7 @@ import { ArrowUpRight, ChevronDown, Download, ExternalLink, Monitor, Package, Pi
 import { ApiError, type AiUse, type Checking, type Detail, type Entry, type HistoryRelease, type Readme as ReadmeText, type Release, type ReleaseScan } from "@quiverlauncher/api";
 import { OS_NAMES, ReleaseBadge, fullDate, platformList, relativeTime } from "@quiverlauncher/ui";
 import { Markdown } from "@quiverlauncher/ui/markdown";
-import { useLauncher } from "./store";
+import { programsFor, useLauncher } from "./store";
 import { bare, versionLabel, versionList, type Version } from "./versions";
 import { native } from "./native";
 import { isCustom, isLocal } from "./custom";
@@ -413,13 +413,16 @@ export function Shortcuts({ entry }: { entry: Entry }) {
       (text) => setMessage({ text }),
       (e) => setMessage({ text: String(e), error: true }),
     );
+  // Big Picture (fork): the shortcut starts the program Play would.
+  const make = (create: (r: typeof request) => Promise<string>) => () =>
+    void programsFor(entry.id, install).then((preferred) => preferred && run(create({ ...request, preferred })));
   return (
     <div className="shortcuts">
       <div className="row">
-        <button onClick={() => run(native.createShortcut(request))}>
+        <button onClick={make(native.createShortcut)}>
           <Monitor size={15} /> Desktop shortcut
         </button>
-        <button onClick={() => run(native.addToSteam(request))}>Add to Steam</button>
+        <button onClick={make(native.addToSteam)}>Add to Steam</button>
       </div>
       {message && (
         <p className={message.error ? "job-error" : "muted"} role="status">

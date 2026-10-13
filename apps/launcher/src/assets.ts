@@ -4,9 +4,10 @@ import type { Asset, Os } from "@quiverlauncher/api";
 const AUXILIARY =
   /\.(json|sha\d*|md5|sig|asc|minisig|pdb|txt)$|(^|[._-])(checksums?|sha\d*sums?|source|src|debug|symbols)([._-]|$)/i;
 /** What the launcher can install, best first. */
-// Big Picture (fork): the last is a file with no extension, where a version's dots don't count
+// Big Picture (fork): .rar (the installer unpacks it; GoldenEye 007 and Ace Combat come so), .tar.xz and .elf
+// (Linux builds), and last a file with no extension, where a version's dots don't count
 // ("DNZHRecompiled-0.0.3-Linux-X64-Release"); upstream's /^[^.]+$/ refused those.
-const FORMATS = [/\.zip$/i, /\.7z$/i, /\.(tar\.gz|tgz)$/i, /\.appimage$/i, /\.exe$/i, /^(?!.*\.[a-z0-9]{1,8}$)/i];
+const FORMATS = [/\.zip$/i, /\.7z$/i, /\.rar$/i, /\.(tar\.gz|tgz)$/i, /\.(tar\.xz|txz)$/i, /\.appimage$/i, /\.elf$/i, /\.exe$/i, /^(?!.*\.[a-z0-9]{1,8}$)/i];
 
 const formatRank = (name: string) => FORMATS.findIndex((f) => f.test(name));
 

@@ -105,6 +105,7 @@ pub async fn install(
             extract(&file, &crate::bigpicture::archives::named(&file, &filename), &out)?;
             crate::bigpicture::archives::unwrap_inner(&out, extract)?;
             flatten(&out).map_err(text)?;
+            crate::bigpicture::archives::mark_programs(&out);
             // Marked as Quiver's before anything goes in, so an install cut short can still be retried or removed.
             fs::create_dir_all(&dir).map_err(text)?;
             if !dir.join(VERSION_FILE).exists() {
@@ -202,6 +203,9 @@ fn extract(file: &Path, name: &str, out: &Path) -> Result<(), String> {
         let gz = flate2::read::GzDecoder::new(fs::File::open(file).map_err(text)?);
         // unpack keeps every entry inside `out`.
         tar::Archive::new(gz).unpack(out).map_err(text)
+    } else if crate::bigpicture::archives::is_tar_xz(&lower) {
+        // Big Picture (fork): .tar.xz, as many Linux builds come.
+        crate::bigpicture::archives::unpack_tar_xz(file, out)
     } else if lower.ends_with(".7z") {
         sevenz_rust2::decompress_file(file, out).map_err(text)
     } else if lower.ends_with(".rar") {
@@ -306,7 +310,7 @@ pub(crate) fn is_program(p: &Path, os: &str) -> bool {
     let program = match os {
         "windows" => n.ends_with(".exe"),
         "macos" => n.ends_with(".app"),
-        _ => n.ends_with(".appimage") || n.ends_with(".x86_64") || n.ends_with(".sh") || is_unix_binary(p),
+        _ => n.ends_with(".appimage") || n.ends_with(".x86_64") || n.ends_with(".sh") || n.ends_with(".elf") || is_unix_binary(p),
     };
     program && !HELPERS.iter().any(|h| n.starts_with(h))
 }

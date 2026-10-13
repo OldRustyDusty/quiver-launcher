@@ -142,6 +142,8 @@ export const setNewInstallDir = (choose: typeof newInstallDir) => void (newInsta
 /** Big Picture (fork): the programs to look for when an app starts, or null when the player cancelled. Unset: its own executables. */
 let launchPrograms: ((id: string, install: Install) => Promise<string[] | null>) | null = null;
 export const setLaunchPrograms = (choose: typeof launchPrograms) => void (launchPrograms = choose);
+/** Big Picture (fork): the programs Play would look for, for a shortcut to start the same one (null: the player cancelled). */
+export const programsFor = (id: string, install: Install) => (launchPrograms ? launchPrograms(id, install) : Promise.resolve(install.executables));
 /** Big Picture (fork): where a new folder you fill is made instead of the apps folder (Quiver 3's games folder). */
 let newLocalFolder: ((name: string) => Promise<string | undefined>) | null = null;
 let newLocalFolderHome: string | null = null;

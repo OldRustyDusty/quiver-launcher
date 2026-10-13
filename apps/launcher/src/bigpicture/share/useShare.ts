@@ -9,7 +9,7 @@ import type { Entry } from "@quiverlauncher/api";
 import { listen } from "@tauri-apps/api/event";
 import { native } from "../../native";
 import { customEntry } from "../../custom";
-import { setNewInstallDir, setNewLocalFolder, useLauncher, type Install } from "../../store";
+import { programsFor, setNewInstallDir, setNewLocalFolder, useLauncher, type Install } from "../../store";
 import { bpNative } from "../bpNative";
 import type { SidecarStore } from "../data/sidecar";
 import {
@@ -317,12 +317,13 @@ export function useShare(sidecar: SidecarStore | null): Share {
           const entry = L().catalog[m.id];
           if (entry && install && (await bpNative.hasDesktopShortcut(entry.projectName).catch(() => false))) {
             const art = entry.libraryArt ?? {};
+            const preferred = (await programsFor(m.id, { ...install, dir: to })) ?? install.executables;
             await native
               .createShortcut({
                 name: entry.projectName,
                 folder: install.folder,
                 dir: to,
-                preferred: install.executables,
+                preferred,
                 wine: Boolean(install.wine),
                 art: { icon: entry.artwork ?? art.logo, header: art.header, capsule: art.capsule, hero: art.hero, logo: art.logo },
               })

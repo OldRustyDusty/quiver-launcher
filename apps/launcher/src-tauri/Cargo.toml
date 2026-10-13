@@ -36,6 +36,8 @@ crc32fast = "1"
 tauri-plugin-dialog = "2"
 # Big Picture (fork): which processes run from a game's folder (src/bigpicture/session.rs).
 sysinfo = { version = "0.39", default-features = false, features = ["system", "disk"] }
+# Big Picture (fork): .tar.xz Linux builds (src/bigpicture/archives.rs); already in the build through zip's lzma.
+lzma-rs = "0.3"
 
 # Big Picture (fork): controllers through SDL3, built from source and linked in (src/bigpicture/pads.rs).
 [target.'cfg(target_os = "windows")'.dependencies]

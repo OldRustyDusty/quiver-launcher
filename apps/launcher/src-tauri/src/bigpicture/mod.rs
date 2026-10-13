@@ -10,6 +10,7 @@ mod pads;
 pub mod archives;
 pub mod hostenv;
 pub mod programs;
+pub mod proton;
 pub mod session;
 pub mod v3;
 pub mod v3share;

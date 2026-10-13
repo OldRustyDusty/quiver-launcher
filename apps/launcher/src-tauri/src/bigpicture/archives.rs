@@ -4,11 +4,15 @@
 //!   are zips. Their first bytes say so.
 //! - A build artifact is often an archive holding one archive (a zip with a
 //!   .tar.gz inside); the inner one is unpacked too.
+//! - Linux builds are often .tar.xz (Taisei, Tails Adventure Remake), which
+//!   upstream doesn't unpack.
+//! - Zips made on Windows don't keep the "executable" permission, so a Linux
+//!   program in one wouldn't start: real programs get it back.
 use std::fs;
-use std::io::Read;
+use std::io::{BufReader, BufWriter, Read};
 use std::path::Path;
 
-const ARCHIVES: [&str; 5] = [".zip", ".tar.gz", ".tgz", ".7z", ".rar"];
+const ARCHIVES: [&str; 7] = [".zip", ".tar.gz", ".tgz", ".tar.xz", ".txz", ".7z", ".rar"];
 
 fn is_archive_name(name: &str) -> bool {
     let lower = name.to_lowercase();
@@ -28,6 +32,8 @@ pub fn named(file: &Path, name: &str) -> String {
         ".zip"
     } else if head.starts_with(&[0x1f, 0x8b]) {
         ".tar.gz"
+    } else if head.starts_with(b"\xfd7zXZ\x00") {
+        ".tar.xz"
     } else if head.starts_with(b"7z\xbc\xaf\x27\x1c") {
         ".7z"
     } else if head.starts_with(b"Rar!") {
@@ -51,6 +57,58 @@ pub fn unwrap_inner(out: &Path, extract: impl Fn(&Path, &str, &Path) -> Result<(
     let result = extract(&staged, &name, out);
     let _ = fs::remove_file(&staged);
     result
+}
+
+/// Whether `name` is a .tar.xz, which [`unpack_tar_xz`] unpacks.
+pub fn is_tar_xz(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    lower.ends_with(".tar.xz") || lower.ends_with(".txz")
+}
+
+/// Unpacks a .tar.xz into `out`, through a .tar beside it.
+pub fn unpack_tar_xz(file: &Path, out: &Path) -> Result<(), String> {
+    let text = |e: &dyn std::fmt::Display| e.to_string();
+    let tar = file.with_extension("unpacked-tar");
+    let result = (|| {
+        let mut from = BufReader::new(fs::File::open(file).map_err(|e| text(&e))?);
+        let mut to = BufWriter::new(fs::File::create(&tar).map_err(|e| text(&e))?);
+        lzma_rs::xz_decompress(&mut from, &mut to).map_err(|e| format!("The .tar.xz couldn't be unpacked: {e:?}"))?;
+        drop(to);
+        // unpack keeps every entry inside `out`.
+        tar::Archive::new(fs::File::open(&tar).map_err(|e| text(&e))?).unpack(out).map_err(|e| text(&e))
+    })();
+    let _ = fs::remove_file(&tar);
+    result
+}
+
+/// Gives every Linux program under `dir` the "executable" permission it may
+/// have lost: ELF binaries, AppImages and shell scripts.
+pub fn mark_programs(dir: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let Ok(entries) = fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(kind) = entry.file_type() else { continue };
+            if kind.is_dir() {
+                mark_programs(&path);
+                continue;
+            }
+            let Ok(meta) = entry.metadata() else { continue };
+            let mode = meta.permissions().mode();
+            if !kind.is_file() || mode & 0o111 != 0 {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            let named = [".appimage", ".sh", ".x86_64", ".elf"].iter().any(|ext| name.ends_with(ext));
+            let mut head = [0u8; 4];
+            let elf = fs::File::open(&path).and_then(|mut f| f.read_exact(&mut head)).is_ok() && head == *b"\x7fELF";
+            if named || elf {
+                let _ = fs::set_permissions(&path, fs::Permissions::from_mode(mode | 0o111));
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -78,6 +136,47 @@ mod tests {
         assert_eq!(named(&program, "game"), "game");
         assert_eq!(named(&zip, "Game.AppImage"), "Game.AppImage.zip");
         assert_eq!(named(&zip, "Game.tar.gz"), "Game.tar.gz");
+        let xz = dir.path().join("game-linux");
+        fs::write(&xz, b"\xfd7zXZ\x00rest").unwrap();
+        assert_eq!(named(&xz, "game-linux"), "game-linux.tar.xz");
+    }
+
+    #[test]
+    fn a_tar_xz_unpacks() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tar = tar::Builder::new(Vec::new());
+        let mut header = tar::Header::new_gnu();
+        header.set_size(6);
+        header.set_mode(0o755);
+        header.set_cksum();
+        tar.append_data(&mut header, "Taisei/taisei", &b"run me"[..]).unwrap();
+        let tar = tar.into_inner().unwrap();
+        let mut xz = Vec::new();
+        lzma_rs::xz_compress(&mut &tar[..], &mut xz).unwrap();
+        let file = dir.path().join("Taisei-linux.tar.xz");
+        fs::write(&file, xz).unwrap();
+        let out = dir.path().join("out");
+        assert!(is_tar_xz("Taisei-linux.tar.xz"));
+        unpack_tar_xz(&file, &out).unwrap();
+        assert_eq!(fs::read(out.join("Taisei/taisei")).unwrap(), b"run me");
+        assert!(!file.with_extension("unpacked-tar").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn linux_programs_get_back_the_executable_permission() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("bin")).unwrap();
+        let files = [("bin/game", &b"\x7fELF...."[..]), ("start.sh", b"#!/bin/sh"), ("readme", b"hello"), ("data.pak", b"\x00\x01")];
+        for (name, bytes) in files {
+            fs::write(dir.path().join(name), bytes).unwrap();
+            fs::set_permissions(dir.path().join(name), fs::Permissions::from_mode(0o644)).unwrap();
+        }
+        mark_programs(dir.path());
+        let runs = |name: &str| fs::metadata(dir.path().join(name)).unwrap().permissions().mode() & 0o111 != 0;
+        assert!(runs("bin/game") && runs("start.sh"));
+        assert!(!runs("readme") && !runs("data.pak"));
     }
 
     #[test]
