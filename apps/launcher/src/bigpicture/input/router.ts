@@ -63,6 +63,12 @@ export class InputRouter {
     return this.stack.at(-1);
   }
 
+  /** The layer of whatever is on top; undefined when nothing is. */
+  get topLayer(): Layer | undefined {
+    const top = this.top;
+    return top && this.layers.get(top);
+  }
+
   hints(): readonly ButtonHint[] {
     return this.top?.hints() ?? [];
   }

@@ -18,7 +18,6 @@ import { Settings } from "./Settings";
 import { Discover, newDiscoverState } from "./Discover";
 import { Downloads } from "./Downloads";
 import { Osk } from "./Osk";
-import { Glyph } from "./Glyph";
 import { Search } from "lucide-react";
 import { matchesSearch } from "./lists";
 import { Home } from "./Home";
@@ -194,19 +193,10 @@ export function Shell() {
           )}
         </div>
       </main>
-      {search && (grid || tab.kind === "discover") ? (
+      {search && (grid || tab.kind === "discover") && (
         <button type="button" className="bp-search-chip" onClick={() => setSearch("")} aria-label="Clear the search">
           <Search aria-hidden="true" />“{search}”<span>✕</span>
         </button>
-      ) : (
-        !typing && (
-          // Search is on View / Create; the button says so, and the mouse can press it.
-          <button type="button" className="bp-search-chip bp-search-button" onClick={() => global("search")} aria-label="Search">
-            <Search aria-hidden="true" />
-            Search
-            <Glyph action="search" size={20} />
-          </button>
-        )
       )}
       <HintBar />
       {typing && (

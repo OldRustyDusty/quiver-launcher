@@ -1,11 +1,13 @@
 /**
- * The footer: Menu on the left, always; on the right what the buttons do now,
+ * The footer: Menu on the left, always, and Search beside it while a tab is
+ * in front (nothing open over it); on the right what the buttons do now,
  * which is always the top handler's hints (spec §5.6).
  */
 import { useSyncExternalStore, type PointerEvent } from "react";
 import { useBp } from "../context";
 import { Glyph } from "./Glyph";
 import type { InputAction } from "../input/actions";
+import { LAYER } from "../input/router";
 
 /** Pressing a hint with the mouse presses its button, held as long as the mouse is, so holds work too. */
 function useHintPress() {
@@ -32,6 +34,12 @@ export function HintBar() {
         <Glyph action="menu" />
         Menu
       </span>
+      {router.topLayer === LAYER.view && (
+        <span className="bp-hint bp-hint-menu" role="button" {...press("search")}>
+          <Glyph action="search" />
+          Search
+        </span>
+      )}
       <span className="bp-hints-right">
         {hints.map((hint) => (
           <span key={hint.action} className="bp-hint" role="button" {...press(hint.action)}>
