@@ -10,6 +10,7 @@ import { Artwork, fullDate } from "@quiverlauncher/ui";
 import { useLauncher, type GameArt, type RepositoryPreview, localFolderHome } from "./store";
 import { native } from "./native";
 import { assetFilterFor } from "./assets";
+import { useOwnPrograms } from "./bigpicture/programs/ownPrograms";
 
 type Step = "choose" | "repository" | "program" | "folder";
 
@@ -37,6 +38,7 @@ export function AddApp({ onClose, onOpen }: { onClose: () => void; onOpen: (entr
 }
 
 function Choose({ onPick }: { onPick: (step: Step) => void }) {
+  const programs = useOwnPrograms();
   const option = (step: Step, icon: ReactNode, title: string, text: string) => (
     <button type="button" className="add-choice" onClick={() => onPick(step)}>
       {icon}
@@ -51,15 +53,12 @@ function Choose({ onPick }: { onPick: (step: Step) => void }) {
       <h2>Add an app</h2>
       <p className="muted">For an app the catalog doesn't have. It's yours alone; to add one for everyone, suggest it on quiverlauncher.com.</p>
       {option("repository", <GitBranch size={22} />, "From GitHub or GitLab", "Installs from the repository's releases, and updates like other apps.")}
-      {/* Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): "A program on this computer" is left out, for parity with Quiver 3 until Quiver 4 is released. */}
-      {SHOW_PROGRAM && option("program", <MonitorPlay size={22} />, "A program on this computer", "Starts it where it is. Nothing is downloaded, moved or deleted.")}
+      {/* Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): "A program on this computer" only with Settings' "Add programs on this computer" on, since Quiver 3 has no such thing. */}
+      {programs.on && option("program", <MonitorPlay size={22} />, "A program on this computer", "Starts it where it is. Nothing is downloaded, moved or deleted.")}
       {option("folder", <FolderPlus size={22} />, "A folder you fill yourself", "Makes a folder in your apps folder to put the app in.")}
     </>
   );
 }
-
-/** Big Picture (fork): see above. */
-const SHOW_PROGRAM = false;
 
 function Heading({ title, onBack }: { title: string; onBack: () => void }) {
   return (
@@ -191,6 +190,8 @@ function FromProgram({ onBack, onDone }: Done) {
     >
       <Heading title="A program on this computer" onBack={onBack} />
       <p className="muted">Choose {PROGRAMS[config.os] ?? "the program"} that starts the app. It starts where it is, and removing it from your library leaves it there.</p>
+      {/* Big Picture (fork): see Choose above. */}
+      <p className="muted">It only exists in Big Quiver Launcher: it won't show up in Quiver 3.5.</p>
       <div className="row">
         <button type="button" onClick={choose} disabled={picking}>
           {path ? "Choose another program…" : "Choose the program…"}

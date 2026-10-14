@@ -25,24 +25,35 @@ map, screens and the test plan**. This file records only what changes because th
 
 ## 2. Architecture (replaces §3)
 
+As built (updated 2026-10-13; the S0 sketch had a few more files that ended up merged):
+
 ```
 apps/launcher/src/bigpicture/
-  BigPictureHost.tsx        # mounted beside <App/>; renders nothing, the toast, or the fullscreen shell
-  bridge.ts                 # adapter over useLauncher(): BpApp view-model, serial install queue
-  bpNative.ts               # invoke() wrappers for the fork's Rust commands
-  input/  actions.ts  padMap.ts  keyboard.ts  repeat.ts  gate.ts  router.ts
-  nav/    grid.ts  shelf.ts
-  consoles/  consoles.ts (short names + ordering metadata keyed by catalog id)  resolve.ts  tabs.ts
-  art/    art.ts  fallbackTile.tsx
-  data/   sidecar.ts
-  updates/ policy.ts
-  session/ session.ts
-  views/  Shell, TabStrip, Home, Grid, Discover, Downloads, Details, UpdatePrompt, Osk, Settings, HintBar, GameTile
-  glyphs/ (Kenney SVGs)
+  BigPictureHost.tsx   # wraps <App/>; desktop mode stays mounted (inert) under the fullscreen shell; desktop dialogs
+  BigPictureButton.tsx, ControllerToast.tsx, mode.ts, context.tsx
+  bridge.ts, useBridge.ts  # adapter over useLauncher(): BpApp view-model, serial install queue
+  bpNative.ts          # invoke() wrappers for the fork's Rust commands
+  input/    actions.ts  repeat.ts  gate.ts  router.ts
+  nav/      grid.ts  shelf.ts
+  consoles/ consoles.ts (short names + years keyed by catalog id)  resolve.ts  tabs.ts
+  art/      art.ts (override chain)  fitted.ts (oversized logos)  useIconColors.ts
+  data/     sidecar.ts (bigpicture.json)
+  updates/  policy.ts  PlayFlow.tsx (update prompt at Play)  AssetPicker.tsx
+  share/    "Use the same games folder as Quiver 3" (§12): v3share.ts (plan)  useShare.ts  ShareDialog.tsx
+  programs/ which program starts a game (§14): programs.ts  usePrograms.ts  ProgramPicker.tsx;
+            ownPrograms.tsx ("Add programs on this computer", §12)
+  views/    Shell, TabStrip, Home, GridTab, Discover, Downloads, Details, Osk, Settings, HintBar, GameTile, Notices…
+  glyphs/   Kenney SVGs
+  dev/      preview.ts (the browser preview, Tauri mocked)
 apps/launcher/src-tauri/src/bigpicture/
-  mod.rs        # commands: bp_read, bp_write (atomic sidecar), bp_args, bp_monitors, bp_focus
-  session.rs    # child-process wait + install-dir polling (sysinfo), emits bp-game-started / bp-game-exited
-  foreground.rs # Windows foreground restore (§11), Linux no-op
+  mod.rs       # sidecar read/write (atomic), launch args, monitors, focus
+  pads.rs      # SDL3 controller reader (Big Picture only); Start + Select closes the game
+  session.rs   # game sessions: wait, launcher-stub handover, game logs, failure notices, closing a game
+  programs.rs  # a game's programs, for the program picker (§14)
+  art.rs       # oversized art fitted once into art-cache/
+  v3.rs, v3share.rs  # finding Quiver 3, and the shared games folder (§12)
+  archives.rs  # archives without extensions, archives inside archives, .tar.xz
+  hostenv.rs, proton.rs, pointer.rs  # Linux only (§13)
 ```
 
 **One window, one store.** Big Picture is a fullscreen React layer in the same webview, so it shares the store instance by construction (spec §11).
@@ -90,8 +101,17 @@ apps/launcher/src-tauri/src/bigpicture/
 * While Big Picture is active, upstream's spatial navigation is suspended (a small exported switch in `spatial.ts`, an upstream touch),
   and Big Picture owns keyboard and pad input. The keyboard map is as in §5.1.
 * RepeatFilter, InputGate and InputRouter are pure TS with fake-clock vitest tests. The timings are as in §5.4.
-* **Risk to verify at S5 on hardware:** DualSense over Bluetooth through WGI, and the Steam-open case. If gilrs fails
-  there, the fallback is SDL3 through the Rust `sdl3` crate in place of gilrs (zlib/MIT). That's a bigger upstream touch, so we'd raise it first.
+* ~~Risk to verify at S5 on hardware: DualSense over Bluetooth through WGI, and the Steam-open case.~~ Resolved by the SDL3
+  reader above; the user confirmed Xbox Elite 2 and DualSense, wireless, with Steam open.
+* **Search (2026-10-13):** View / Create. The hint bar shows Search beside Menu while a tab is in front (not in Details,
+  Settings, dialogs or the on-screen keyboard), since nothing on screen said where search was.
+* **Start + Select, held 1 s on one pad, closes the game** started from Big Picture and everything it started (2026-10-13,
+  for games with no way to quit). pads.rs watches for it, because the page may be throttled behind the game. Linux asks
+  politely, then forces after 3 s; Windows forces at once (no polite signal there; WM_CLOSE could be tried first). Setting
+  *Close a game with Start + Select*, on by default. quiver.log records each hold and its outcome.
+* **Mouse pointer with Select (Linux, 2026-10-13):** while a game runs, hold Select: the right stick moves a pointer, RT
+  clicks, LT right-clicks, the left stick scrolls (a virtual mouse through /dev/uinput, `pointer.rs`). For launchers that only
+  take the mouse, unusable in Steam's Game Mode before. Setting *Mouse pointer with Select*.
 
 ## 5. Consoles (replaces §7.1–7.2)
 
@@ -112,9 +132,26 @@ Tab ordering modes, hide-when-empty, and fall back to All are unchanged (§7.3).
 
 ## 6. Game sessions (replaces the R7 dependency in §11)
 
-Upstream touch: `launch` passes the spawned `Child` to `bigpicture::session::track(app, id, child, install_dir)`.
-That's about 3 lines, and the command signature seen by TS is unchanged. The Rust side waits for exit. If the process exits within 10 s, it polls (every 2 s, `sysinfo`)
-for processes whose exe is under the install dir. Then it emits `bp-game-exited`, and Big Picture clears input and restores the foreground.
+Upstream touch: `launch` passes the spawned `Child` to `bigpicture::session::track` (see FORK_CHANGES for the lines). The
+command signature seen by TS is unchanged. The Rust side waits for exit. If the process exits within 10 s it was a launcher
+stub, and the session polls (every 2 s, `sysinfo`) until nothing of the game's runs: a program inside the game's folder, or
+(added 2026-10-13) one started since the game whose working folder is the game's. That second kind is how Bloodborne's
+Windows port works: `launch_gui.bat` starts `python.exe` from elsewhere and exits. Then it emits `bp-game-exited`, and Big
+Picture clears input and restores the foreground.
+
+**Game logs and failures (2026-10-13).** Upstream discarded the game's output, so a game that failed did so silently. Now its
+stdout and stderr go to `game-logs/<folder>.log` in the data folder, started afresh at each launch. A game that closes with an
+error within 10 s with nothing of it left running, or crashes (a crash signal; Linux only), shows *Game didn't start* / *Game
+crashed* with its last telling line and the log's path, in Big Picture and as the app's error on the desktop card.
+
+**A game that needs its ROM (2026-10-13, the user's choice of option 1).** Most ports ask for the player's ROM themselves;
+some only quit. GoldenEye 007's PC port says "no ROM found (tried ge007.ntsc-final.z64|baserom.u.z64 in data/ and exe dir)"
+and exits with code 1, which read as a technical error. The catalog has no field for "needs your own game files", so the
+game's output is read (`romneed.rs`): a line about a missing ROM gives the file name and folder it wants. Big Picture and
+desktop mode then show *Game needs your own copy of the game*, with **Choose the file…** (the system file picker; Big Quiver
+copies the player's file there under that name, then plays again), **Open folder**, **Read the instructions** (its README)
+and **Close**. The desktop card keeps the plain message. A catalog field for this would be the better fix; until then, a
+warning before the first Play (from the README) was offered and left for later.
 
 ## 7. Artwork (replaces §10)
 
@@ -137,16 +174,10 @@ Upstream already has a per-app mode: `ask` (default) / `auto` (installs in the b
 `updateBehavior` applies at **Play** time only to apps in upstream `ask` mode. `pinned` apps never prompt, and `auto` apps are already
 handled upstream. "Skip this version" is stored in the sidecar, as in the spec.
 
-## 9. Upstream touches (expected)
+## 9. Upstream touches
 
-| File | Change |
-|---|---|
-| `src-tauri/src/lib.rs` | `mod bigpicture;`, register the fork commands, hand `Child` to session tracking in `launch` |
-| `src-tauri/src/gamepad.rs` | add `vendor` to the `pad` event payload |
-| `src-tauri/Cargo.toml` | `sysinfo`, `windows-sys` (for foreground restore) |
-| `src/spatial.ts` | export a suspend switch |
-| `src/main.tsx` | mount `<BigPictureHost/>` |
-| `src/App.tsx` | "Big Picture" button in the header, "Switch to desktop" from Big Picture |
+`FORK_CHANGES.md` is the record of every upstream file touched, why, and when. (The S0 guess that stood here is superseded:
+`gamepad.rs` ended up untouched, and `windows-sys` wasn't needed.)
 
 ## 10. Build order (replaces §13)
 
@@ -169,12 +200,13 @@ handled upstream. "Skip this version" is stored in the sidecar, as in the spec.
 ## 11. Details and settings (S11)
 
 * Details buttons: Play (or Install / Get), Update, Change version (the catalog's releases), Console (picker; Automatic
-  follows the catalog), Open folder, Uninstall (hold A, or the mouse, for 1.5 s; files go to the Recycle Bin as upstream's
-  remove does).
+  follows the catalog), Change program (only once a program was picked, §14: the next Play asks again), Open folder,
+  Uninstall (hold A, or the mouse, for 1.5 s; files go to the Recycle Bin as upstream's remove does).
 * **Left out:** *Manage mods in desktop mode*, because v4 has no mods. *Change artwork* waits for SteamGridDB (deferred). The
   sidecar's art overrides already apply when set.
-* Settings has every §6 setting except the SteamGridDB key (deferred), plus *After getting a game*, *Unassigned games*
-  and *Switch to desktop mode*. Accounts and sign-in stay in desktop mode.
+* Settings has every §6 setting except the SteamGridDB key (deferred), plus *After getting a game*, *Use the same games
+  folder as Quiver 3* (§12), *Add programs on this computer* (§12), *Close a game with Start + Select*, *Mouse pointer with
+  Select* (Linux), *Screen*, *Unassigned games* and *Switch to desktop mode*. Accounts and sign-in stay in desktop mode.
 * Search: View / Create opens the on-screen keyboard. Library tabs filter as you type (Home and Downloads jump to All).
   Discover searches the catalog once typing pauses. B clears the search. A physical keyboard types into the on-screen one.
 * Desktop mode shows a note when a controller is turned on (upstream's controller events). A or a click opens Big Picture.
@@ -182,9 +214,10 @@ handled upstream. "Skip this version" is stored in the sidecar, as in the spec.
 
 ## 12. One games folder, shared with Quiver 3.5 (planned and built 2026-10-10)
 
-**Status: built** (2026-10-10, at the user's go-ahead). The code is `src/bigpicture/share/` (plan, controller, dialog) and
-`src-tauri/src/bigpicture/v3share.rs`. It was checked in the browser preview (`?share`) and by unit tests, including a round trip
-on a copy of the user's real `apps.json`. It hasn't run on real game files yet. Where the build differs from the plan below:
+**Status: built, tested by the user on their real library, and released in alpha 2** (2026-10-10). The code is
+`src/bigpicture/share/` (plan, controller, dialog) and `src-tauri/src/bigpicture/v3share.rs`. It was also checked in the browser
+preview (`?share`) and by unit tests, including a round trip on a copy of the user's real `apps.json`. Where the build differs
+from the plan below:
 
 * **Custom apps only Quiver 3 has** come over as upstream's import brings them (`customEntry`, nothing downloaded). (First built
   without them; added the same day.)
@@ -194,9 +227,10 @@ on a copy of the user's real `apps.json`. It hasn't run on real game files yet. 
   * **B.** Quiver 3's manual apps come into Big Quiver as folders you fill, where they are.
   * **C.** At every start (not only when it's turned on), whatever Quiver 3 has that Big Quiver doesn't comes over, with a short
     note.
-  * Quiver 4's *A program on this computer* is hidden in Add an app, for parity with Quiver 3; it's to be reconsidered once
-    Quiver 4 is released. Programs added that way stay Big Quiver's only: Quiver 3 lists apps by folder, so a program loose in a
-    shared folder would make Quiver 3's Delete take the whole folder.
+  * Quiver 4's *A program on this computer* is hidden in Add an app, for parity with Quiver 3, unless the setting *Add programs
+    on this computer* is on (off by default; in desktop Settings and Big Picture Settings, added 2026-10-13 at the user's request).
+    Turning it on warns first that these games only exist in Big Quiver Launcher. Programs added that way stay Big Quiver's
+    only: Quiver 3 lists apps by folder, so a program loose in a shared folder would make Quiver 3's Delete take the whole folder.
 * **Backups:** each write first saves `apps.json` into Quiver 3's own `Backups/apps` (SHA-256 names, as Quiver 3 names them).
   The first backup's path is kept in `bigpicture.json` (`v3Share.backup`).
 * **Steam shortcuts** aren't detected. The result lists moved games and says to add them to Steam again. Desktop shortcuts with
@@ -243,8 +277,8 @@ Wording (user's direction, 2026-10-10). Avoid "in step" and "sync". Name the app
 > Games you get in Big Quiver Launcher will install to `<3.5 games folder>` with your Quiver 3 games, and show up in Quiver 3 too.
 > [Yes] [Not now] ([Don't ask again] on the one-time prompt)
 
-The Settings row is **Use the same games folder as Quiver 3** (On / Off), with the detail *Games install to `<folder>` and show
-up in Quiver 3 too*.
+The Settings row is **Use the same games folder as Quiver 3** (On / Off), with the detail *Recommended: Quiver 3 and Big Quiver
+share the same game files and folders (`<folder>`)*. Turning it off asks first, with its own prompt.
 
 **Catch-up on opt-in.** Games are matched by provider and repository, as upstream's import does. First a dry-run preview of
 counts and names. If 3.5 is running, the user is asked to close it. Then `apps.json` is backed up and the changes are applied:
@@ -284,14 +318,13 @@ partial copy.
 * Saves inside a game's folder move with it.
 
 **Turning it off.** Switching the setting off stops it, but doesn't undo anything; the opt-in backup restores `apps.json` exactly.
-`apps.json` exactly.
 
-**Upstream touches (need logging in FORK_CHANGES).** `store.tsx`, about 15 lines:
-* `get()` installs new games into a given folder and records it as `dir`.
-* A `relocate(id, dir)` function records a moved install.
+**Upstream touches (logged in FORK_CHANGES).** `store.tsx`, about 15 lines:
+* `get()` installs new games into a given folder and records it as `dir` (`setNewInstallDir`).
+* `adopt(id, install)` records a moved install, or a game found in Quiver 3.
 
 Both go through upstream's own persistence, and the data formats stay unchanged. Writing 3.5's `apps.json` is fork code
-(Rust, `src-tauri/src/bigpicture/v3sync.rs`). It's a deliberate, approved exception: rule 3 covers Quiver 4's files, and 3.5's
+(Rust, `src-tauri/src/bigpicture/v3share.rs`). It's a deliberate, approved exception: rule 3 covers Quiver 4's files, and 3.5's
 are written only in its own format, under its own lock.
 
 **Tests before touching real files.**
@@ -300,3 +333,55 @@ are written only in its own format, under its own lock.
 * 3.5 running (lock held).
 * Two copies of one game.
 * An `apps.json` round-trip that keeps unknown fields untouched.
+
+## 13. Linux (Bazzite, 2026-10-13)
+
+Tested on Bazzite (KDE, Wayland; Steam's Game Mode too) from an AppImage built on Ubuntu 22.04 (the hand-started workflow
+`.github/workflows/bigpicture-linux.yml`). Released as alpha 3, a Linux-only pre-release. What changed for Linux:
+
+* **Games get the system's environment**, not the AppImage's (`hostenv.rs`): they loaded its older libraries, and ROM pickers
+  (zenity) crashed. Only inside an AppImage.
+* **Windows-only games run through Proton** (`proton.rs`): Bazzite has no `wine` but ships `umu-run`, so Steam's newest
+  Proton runs them, in a prefix per game (`proton-prefixes/` in the data folder). Only when `wine` is the program.
+* **Downloads:** `.tar.xz` and `.elf` builds are taken; Flatpak bundles rank last (a bundle has no program to start); Linux
+  programs get the executable permission back after unpacking from Windows-made zips.
+* **On every OS:** `.rar` releases are offered (the installer always unpacked them, but none was ever picked), and
+  extension-less download names with a version's dots are accepted, unpacked by their first bytes, with a lone archive inside
+  unpacked too (Duke Nukem Zero Hour: Recompiled).
+* **Oversized logos** (more pixels than a 4K screen) are shown from a 2048 px copy in `art-cache/`: LEGO Island's 18106×4509
+  logo made Details lag on WebKitGTK.
+* SDL3 is built without video on Linux; controllers come straight from udev.
+
+Open on Linux: DualSense untested; games that ask for a ROM through the launcher mostly untested; a one-off freeze when WebKit's
+network process died (likely the bundled libsoup 3.0); links still open with the AppImage's environment.
+
+## 14. Which program starts a game (2026-10-13)
+
+When the catalog names no program for this computer, upstream takes the first program in the folder (shallowest, then
+alphabetical). That can be a tool beside the game. Big Picture (`programs/`, `programs.rs`) decides instead, in both modes, at
+each Play and for desktop and Steam shortcuts:
+
+1. The program the player picked before (`bigpicture.json`, `program`).
+2. The catalog's names for this computer.
+3. On Linux, the catalog's Windows names without `.exe` (Star Fox Enhanced: `starfox_pc`, not `starfox_asset_builder`).
+4. Otherwise, when there's a real choice, the player picks once, and it's remembered:
+   * Linux: more than one program in the folder.
+   * Windows: several programs side by side at the shallowest level that has any, so upstream would be guessing. Crash
+     handlers (Unity's, crashpad) don't count, and `.bat` / `.cmd` scripts are offered too. Bloodborne's Windows port has five
+     programs in `out\` (the first, `bb-gpu-capabilities.exe`, is a GPU check) and starts from `launch_gui.bat`; Perfect Dark
+     started its Japanese build. Unreal and Unity games, with one program on top, aren't asked.
+5. Else upstream's own pick.
+
+Details' *Change program* forgets the pick, so the next Play asks again.
+
+## 15. Releases
+
+| Release | Platform | Notes |
+|---|---|---|
+| v4.0.0-alpha.1-bigpicture.1 | Windows | Big Picture (S0–S12), Quiver 3 import |
+| v4.0.0-alpha.1-bigpicture.2 | Windows (Latest) | Adds "Use the same games folder as Quiver 3" |
+| v4.0.0-alpha.1-bigpicture.3 | Linux AppImage (pre-release) | §13, Start + Select, the Search hint, oversized logos, game logs and failure notices |
+
+The installer's file name carries upstream's version (`4.0.0-alpha.1`); the release names carry the alpha number. The changes
+since alpha 3 (built and tested on Windows on 2026-10-13: the Bazzite fixes, §14 on Windows, *Add programs on this computer*)
+aren't released yet.

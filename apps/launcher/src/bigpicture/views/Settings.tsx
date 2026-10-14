@@ -12,6 +12,7 @@ import { bpNative } from "../bpNative";
 import type { BpSettings } from "../data/sidecar";
 import { APPS, OTHER } from "../consoles/consoles";
 import { resolveConsole } from "../consoles/resolve";
+import { useOwnPrograms } from "../programs/ownPrograms";
 
 type Option<T> = { value: T; label: string };
 type Row =
@@ -141,6 +142,7 @@ function Unassigned({ onClose }: { onClose: () => void }) {
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const { sidecar, data, exit, bridge, share } = useBp();
+  const ownPrograms = useOwnPrograms();
   const s = data.settings;
   const [screen, setScreen] = useState<"main" | "unassigned">("main");
   const [monitors, setMonitors] = useState<string[]>([]);
@@ -185,6 +187,15 @@ export function Settings({ onClose }: { onClose: () => void }) {
           } satisfies Row,
         ]
       : []),
+    {
+      kind: "choice",
+      label: "Add programs on this computer",
+      detail: `Add an app (desktop mode) can add a program${bridge.config.os === "windows" ? " (.exe)" : ""} where it is. They stay in Big Quiver Launcher only, not Quiver 3.5`,
+      options: onOff,
+      value: ownPrograms.on,
+      // On warns first; Off just hides the option, and programs already added stay.
+      set: (value: unknown) => (value ? ownPrograms.ask() : ownPrograms.turnOff()),
+    },
     { kind: "choice", label: "Start in Big Picture", detail: "Quiver opens straight into Big Picture", options: onOff, value: s.startInBigPicture, set: set("startInBigPicture") },
     {
       kind: "choice",

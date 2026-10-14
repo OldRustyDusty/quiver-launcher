@@ -1,10 +1,10 @@
 /**
  * A game's page (Y; spec §8): its hero, logo and story, what's installed, and
- * buttons: Play (or Install / Get), Update, Change version, Console, Open folder,
- * Uninstall (held). Left/Right pick a button, A presses it.
+ * buttons: Play (or Install / Get), Update, Change version, Console, Change program
+ * (once one was picked: programs/usePrograms.ts), Open folder, Uninstall (held). Left/Right pick a button, A presses it.
  */
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowUpCircle, Download, FolderOpen, Gamepad2, History, Play, Trash2 } from "lucide-react";
+import { ArrowUpCircle, Download, FolderOpen, Gamepad2, History, Play, SquareTerminal, Trash2 } from "lucide-react";
 import type { Release } from "@quiverlauncher/api";
 import { useBp, useInputHandler } from "../context";
 import { LAYER, type ButtonHint } from "../input/router";
@@ -93,7 +93,7 @@ function VersionPicker({ app, onClose }: { app: BpApp; onClose: () => void }) {
 
 /** `app` as it was opened; shown live from the library when it's in it (a game from Discover may not be). */
 export function Details({ app: opened, onClose }: { app: BpApp; onClose: () => void }) {
-  const { bridge, play, consoles, data, router } = useBp();
+  const { bridge, play, consoles, data, router, sidecar } = useBp();
   const app = bridge.apps.find((a) => a.id === opened.id) ?? bridge.view(opened.entry);
   const [sub, setSub] = useState<"version" | "console" | null>(null);
   const [index, setIndex] = useState(0);
@@ -110,6 +110,19 @@ export function Details({ app: opened, onClose }: { app: BpApp; onClose: () => v
     ...(app.state === "updateAvailable" ? [{ id: "update", label: `Update to ${versionLabel(app.latestVersion)}`, icon: <ArrowUpCircle />, run: () => void bridge.update(app.id) }] : []),
     ...(app.slug && !isBusy(app) ? [{ id: "version", label: "Change version", icon: <History />, run: () => setSub("version") }] : []),
     ...(app.inLibrary ? [{ id: "console", label: "Console", icon: <Gamepad2 />, run: () => setSub("console") }] : []),
+    ...(data.apps[app.id]?.program
+      ? [
+          {
+            id: "program",
+            label: "Change program",
+            icon: <SquareTerminal />,
+            run: () => {
+              sidecar.updateApp(app.id, ({ program: _, ...rest }) => rest);
+              setNotice(`It started ${data.apps[app.id]?.program}. The next Play asks which program starts it.`);
+            },
+          },
+        ]
+      : []),
     ...(installed
       ? [
           {

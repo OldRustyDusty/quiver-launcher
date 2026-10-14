@@ -561,6 +561,8 @@ pub fn run() {
             bigpicture::v3share::bp_has_desktop_shortcut,
             bigpicture::v3share::bp_make_folder,
             bigpicture::programs::bp_programs,
+            bigpicture::romneed::bp_place_rom,
+            bigpicture::romneed::bp_open_readme,
             bigpicture::session::bp_close_combo,
             bigpicture::session::bp_pointer,
             bigpicture::art::bp_fit_art

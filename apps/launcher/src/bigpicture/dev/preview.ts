@@ -10,7 +10,8 @@
  *   ?failLaunch makes every launch fail (error notices); ?empty&reset starts with an empty library,
  *   and &v3 adds a Quiver 3 library to bring over. ?share adds a Quiver 3 library for "Use the same
  *   games folder as Quiver 3" (?share=open: Quiver 3 is open for its first ten seconds; ?share=later: it has
- *   two games added since, for the pick-up at start).
+ *   two games added since, for the pick-up at start). ?needRom: games close at once saying their ROM
+ *   isn't there (GoldenEye's message), until a "file" is chosen in the ROM dialog.
  * - Controllers: bpPad("South") in the console presses and releases a control
  *   (gilrs names); bpPad("DPadRight", true) holds it, bpPad("DPadRight", false)
  *   lets go. The last argument is the pad's family ("playstation" for its glyphs).
@@ -144,6 +145,17 @@ mockIPC(
       case "launch":
         // ?failLaunch: a game whose program is missing, as the real launcher says it.
         if (params.has("failLaunch")) throw "Couldn't find a program to start in this app's folder.";
+        // ?needRom: it quits at once, as GoldenEye 007's port does without its ROM.
+        if (params.has("needRom") && !load("romPlaced")) {
+          void emit("bp-game-started", 1);
+          setTimeout(() => {
+            const rom = { file: "ge007.ntsc-final.z64", into: "data", dir: `E:\\QuiverLauncher\\Apps\\${a.folder}`, readme: `E:\\QuiverLauncher\\Apps\\${a.folder}\\README.md` };
+            const message = "It needs your own copy of the original game (a ROM), which isn't included. It looks for ge007.ntsc-final.z64 in its data folder.";
+            void emit("bp-game-failed", { folder: a.folder, message, early: true, rom });
+            void emit("bp-game-exited", 1);
+          }, 400);
+          return null;
+        }
         // A game that runs for three seconds.
         console.info("[preview] launch", a);
         void emit("bp-game-started", 1);
@@ -164,6 +176,13 @@ mockIPC(
         return a.name ?? "\\.\DISPLAY1";
       case "bp_pads_start":
         setTimeout(() => void emit("bp-pads", ["Preview controller"]), 50);
+        return null;
+      case "bp_place_rom":
+        console.info("[preview] ROM placed", a);
+        save("romPlaced", true);
+        return new Promise((resolve) => setTimeout(() => resolve(true), 400));
+      case "bp_open_readme":
+        console.info("[preview] open README", a);
         return null;
       case "bp_v3_library":
         return params.has("share") ? v3Library() : null;

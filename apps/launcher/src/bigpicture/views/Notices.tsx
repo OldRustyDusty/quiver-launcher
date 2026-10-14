@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useBp } from "../context";
 import type { BpState } from "../bridge";
+import { romNeed } from "../programs/RomDialog";
 
 const SHOWN_FOR = 7000;
 
@@ -22,7 +23,8 @@ export function Notices() {
     const fresh: Notice[] = [];
     for (const app of bridge.apps) {
       // Errors already there when Big Picture opened aren't news.
-      if (was && app.state === "error" && was.get(app.id) !== "error")
+      // A game that needs its ROM has its own dialog (programs/RomDialog.tsx).
+      if (was && app.state === "error" && was.get(app.id) !== "error" && romNeed.get()?.id !== app.id)
         fresh.push({ key: ++next.current, title: !app.installedVersion ? `${app.title} didn't install` : app.error?.startsWith("It crashed") ? `${app.title} crashed` : `${app.title} didn't start`, text: app.error ?? "" });
     }
     before.current = new Map(bridge.apps.map((a) => [a.id, a.state]));

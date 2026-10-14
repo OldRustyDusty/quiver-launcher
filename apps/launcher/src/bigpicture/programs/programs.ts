@@ -7,6 +7,10 @@
  *      starfox_pc.exe, and its Linux build has starfox_pc.
  * When none of them is a program in the folder and it has more than one,
  * the player picks, and that's remembered (bigpicture.json).
+ *
+ * On Windows the player picks only when upstream would be guessing: several
+ * programs side by side (src-tauri/src/bigpicture/programs.rs), as in
+ * Bloodborne's Windows port, whose first program is a GPU check.
  */
 
 type ByOs = Partial<Record<string, string[]>>;

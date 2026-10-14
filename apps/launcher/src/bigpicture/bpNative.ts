@@ -23,9 +23,13 @@ export const bpNative = {
   /** Fullscreen on this monitor (or stay where it is); resolves to the monitor used. */
   useMonitor: (name: string | null) => invoke<string | null>("bp_use_monitor", { name }),
   monitors: () => invoke<string[]>("bp_monitors"),
-  /** The programs in a game's folder (relative paths), and the file name of the first one matching `hints` (programs/programs.ts). */
+  /** The programs in a game's folder (relative paths), and the file name of the first one matching `hints` (programs/programs.ts). `unsure`: Windows, where upstream's pick would be a guess. */
+  /** Asks for the player's ROM and copies it to `dir`/`into`/`file`; false when they cancelled (programs/RomDialog.tsx). */
+  placeRom: (dir: string, into: string, file: string) => invoke<boolean>("bp_place_rom", { dir, into, file }),
+  /** Opens a game's README. */
+  openReadme: (path: string) => invoke<void>("bp_open_readme", { path }),
   programs: (folder: string, dir: string | undefined, hints: string[]) =>
-    invoke<{ matched: string | null; choices: string[]; flatpak: string | null }>("bp_programs", { folder, dir, hints }),
+    invoke<{ matched: string | null; choices: string[]; flatpak: string | null; unsure?: boolean }>("bp_programs", { folder, dir, hints }),
 
   // "Use the same games folder as Quiver 3" (src-tauri/src/bigpicture/v3share.rs).
   /** Quiver 3's library, its games folder, and whether it's open; null without one. */

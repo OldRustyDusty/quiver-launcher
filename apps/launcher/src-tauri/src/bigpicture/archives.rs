@@ -84,6 +84,8 @@ pub fn unpack_tar_xz(file: &Path, out: &Path) -> Result<(), String> {
 /// Gives every Linux program under `dir` the "executable" permission it may
 /// have lost: ELF binaries, AppImages and shell scripts.
 pub fn mark_programs(dir: &Path) {
+    #[cfg(not(unix))]
+    let _ = dir;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

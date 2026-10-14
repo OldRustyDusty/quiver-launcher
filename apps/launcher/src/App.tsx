@@ -17,6 +17,7 @@ import { useAccount, type CatalogDefaults } from "./account";
 import { native } from "./native";
 import { isLocal, isOwn } from "./custom";
 import { AddApp } from "./own";
+import { OwnProgramsSetting } from "./bigpicture/programs/ownPrograms";
 import type { Theme } from "./theme";
 import { BigPictureButton } from "./bigpicture/BigPictureButton";
 
@@ -1023,6 +1024,8 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           <section className="settings-section" aria-label="Library">
             <h3>Library</h3>
             <ViewOptions />
+            {/* Big Picture (fork, docs/bigpicture/FORK_CHANGES.md): lets Add an app add a program. */}
+            <OwnProgramsSetting />
           </section>
           <p className="muted">Apps are installed in {config.appsDir}</p>
           <TelemetrySetting />

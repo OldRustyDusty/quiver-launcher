@@ -14,6 +14,7 @@ pub mod hostenv;
 pub mod pointer;
 pub mod programs;
 pub mod proton;
+pub mod romneed;
 pub mod session;
 pub mod v3;
 pub mod v3share;

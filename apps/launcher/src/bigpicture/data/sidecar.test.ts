@@ -36,6 +36,12 @@ describe("normalize", () => {
     expect(data.settings.monitor).toBeNull();
     expect(Object.keys(data.apps)).toEqual(["b"]);
   });
+
+  it("leaves adding programs off unless it was turned on", () => {
+    expect(normalize({ settings: {} }).settings.allowPrograms).toBe(false);
+    expect(normalize({ settings: { allowPrograms: "yes" } }).settings.allowPrograms).toBe(false);
+    expect(normalize({ settings: { allowPrograms: true } }).settings.allowPrograms).toBe(true);
+  });
 });
 
 describe("SidecarStore", () => {

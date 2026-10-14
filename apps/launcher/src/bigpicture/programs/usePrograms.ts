@@ -10,10 +10,17 @@ import { setLaunchPrograms, useLauncher } from "../../store";
 import { bpNative } from "../bpNative";
 import type { SidecarStore } from "../data/sidecar";
 import { fileName, literal, programHints } from "./programs";
+import { romNeed } from "./RomDialog";
 
 export type ProgramChoice = { title: string; choices: string[]; resolve: (choice: string | null) => void };
 
-type Failure = { folder: string; message: string; early: boolean };
+type Failure = {
+  folder: string;
+  message: string;
+  early: boolean;
+  /** It said it needs the player's own copy of the game (src-tauri/src/bigpicture/romneed.rs). */
+  rom?: { file: string | null; into: string; dir: string; readme: string | null } | null;
+};
 
 const flatpakMessage = (bundle: string) =>
   `What was downloaded is a Flatpak bundle, which Big Quiver can't start. Uninstall it and get it again: Big Quiver now picks the regular Linux download when there is one. Or install the bundle yourself: flatpak install --user "${bundle}"`;
@@ -30,7 +37,7 @@ export function usePrograms(sidecar: SidecarStore | null): ProgramChoice | null 
       const { config, catalog, jobs, dismiss } = latest.current;
       // A new try: an error from the last one isn't news any more.
       if (jobs[id] && "error" in jobs[id]) dismiss(id);
-      if (install.program || config.os === "windows") return install.executables;
+      if (install.program) return install.executables;
       const entry = catalog[id];
       const hints = programHints(config.os, install.executables, entry?.launcher?.preferredExecutables, sidecar.app(id).program);
       const found = await bpNative.programs(install.folder, install.dir, hints).catch(() => null);
@@ -40,8 +47,8 @@ export function usePrograms(sidecar: SidecarStore | null): ProgramChoice | null 
         latest.current.fail(id, flatpakMessage(found.flatpak));
         return null;
       }
-      // One program or none: upstream's own search finds it, or says there's none.
-      if (found.choices.length < 2) return install.executables;
+      // One program or none: upstream's own search finds it, or says there's none. On Windows, also when it isn't guessing.
+      if (found.choices.length < 2 || (config.os === "windows" && !found.unsure)) return install.executables;
       const title = entry?.projectName || entry?.name || "this game";
       const picked = await new Promise<string | null>((resolve) => setChoice({ title, choices: found.choices, resolve }));
       setChoice(null);
@@ -54,9 +61,16 @@ export function usePrograms(sidecar: SidecarStore | null): ProgramChoice | null 
 
   useEffect(() => {
     const stop = listen<Failure>("bp-game-failed", ({ payload }) => {
-      const { installs, fail } = latest.current;
+      const { installs, fail, catalog, library } = latest.current;
       const id = Object.keys(installs).find((key) => installs[key].folder === payload.folder);
       if (!id) return;
+      if (payload.rom) {
+        // Before fail(): Notices leaves out the game the dialog is about.
+        const entry = catalog[id];
+        const title = library.find((i) => i.id === id)?.overrides?.name || entry?.projectName || entry?.name || "This game";
+        romNeed.set({ id, title, ...payload.rom });
+        return fail(id, payload.message);
+      }
       let message = payload.message;
       // A picked program that won't start may be the wrong one: next time, the player picks again.
       if (payload.early && sidecar?.app(id).program) {

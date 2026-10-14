@@ -3,7 +3,9 @@
 //!
 //! The game's own process is waited on. A launcher stub (one that starts the
 //! real game and exits within a few seconds) hands over to processes running
-//! from the game's folder, which are then watched until none is left.
+//! from the game's folder, which are then watched until none is left. Those are
+//! programs inside the folder, and ones started since the game that work in it
+//! (Bloodborne's launch_gui.bat starts python.exe there).
 //!
 //! A game that closes with an error before it really started, or crashes, is
 //! reported ("bp-game-failed") with the last telling line of its output, which
@@ -29,8 +31,8 @@ static LATEST: AtomicU64 = AtomicU64::new(0);
 const STUB_TIME: Duration = Duration::from_secs(10);
 const POLL: Duration = Duration::from_secs(2);
 
-/// The game being played: its session, process and folder.
-static PLAYING: Mutex<Option<(u64, u32, PathBuf)>> = Mutex::new(None);
+/// The game being played: its session, process, folder and start (Unix seconds).
+static PLAYING: Mutex<Option<(u64, u32, PathBuf, u64)>> = Mutex::new(None);
 /// Big Picture's setting "Close a game with Start + Select".
 pub static CLOSE_COMBO: AtomicBool = AtomicBool::new(true);
 /// How long a game has to quit when asked, before it's forced.
@@ -64,12 +66,16 @@ struct Failure {
     message: String,
     /// Closed right after starting, rather than crashing.
     early: bool,
+    /// It said it needs the player's own copy of the game (romneed.rs).
+    rom: Option<super::romneed::RomNeed>,
 }
 
 /// Called with each game the launcher starts.
 pub fn track(app: &AppHandle, mut child: Child, dir: PathBuf, folder: String, log: GameLog) {
     let session = LATEST.fetch_add(1, Ordering::SeqCst) + 1;
-    *PLAYING.lock().unwrap() = Some((session, child.id(), dir.clone()));
+    // A second early, as process start times are in whole seconds.
+    let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()).saturating_sub(1);
+    *PLAYING.lock().unwrap() = Some((session, child.id(), dir.clone(), since));
     let _ = app.emit("bp-game-started", session);
     let app = app.clone();
     std::thread::Builder::new()
@@ -81,18 +87,22 @@ pub fn track(app: &AppHandle, mut child: Child, dir: PathBuf, folder: String, lo
             let mut handed_over = false;
             if quick {
                 let mut system = System::new();
-                while running_from(&mut system, &dir) {
+                while game_running(&mut system, &dir, since) {
                     handed_over = true;
                     std::thread::sleep(POLL);
                 }
             }
             if let Some(problem) = status.and_then(|s| problem(s, quick && !handed_over)) {
                 let early = matches!(problem, Problem::ClosedEarly(_));
-                let message = message(&problem, log.path.as_deref());
-                let _ = app.emit("bp-game-failed", Failure { folder, message, early });
+                let rom = if early { log.path.as_deref().and_then(|path| super::romneed::from_output(&tail(path), &dir)) } else { None };
+                let message = match &rom {
+                    Some(need) => super::romneed::message(need, log.path.as_deref()),
+                    None => message(&problem, log.path.as_deref()),
+                };
+                let _ = app.emit("bp-game-failed", Failure { folder, message, early, rom });
             }
             if LATEST.load(Ordering::SeqCst) == session {
-                PLAYING.lock().unwrap().take_if(|(s, _, _)| *s == session);
+                PLAYING.lock().unwrap().take_if(|(s, _, _, _)| *s == session);
                 let _ = app.emit("bp-game-exited", session);
             }
         })
@@ -103,7 +113,8 @@ pub fn track(app: &AppHandle, mut child: Child, dir: PathBuf, folder: String, lo
 enum Problem {
     /// Closed with an error before it really started (no stub handing over).
     ClosedEarly(i32),
-    /// Ended by a crash signal, whenever it came.
+    /// Ended by a crash signal, whenever it came (Unix only).
+    #[cfg_attr(not(unix), allow(dead_code))]
     Crashed(&'static str),
 }
 
@@ -204,7 +215,8 @@ pub fn bp_pointer(on: bool) {
     POINTER.store(on, Ordering::Relaxed);
 }
 
-/// Whether a game started from Big Picture is running.
+/// Whether a game started from Big Picture is running (the Linux pointer asks).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub fn playing() -> bool {
     PLAYING.lock().unwrap().is_some()
 }
@@ -218,21 +230,21 @@ pub fn bp_close_combo(on: bool) {
 /// Closes the game being played and everything it started (in the background);
 /// false when none is.
 pub fn close_game(log: &Path) -> bool {
-    let Some((_, pid, dir)) = PLAYING.lock().unwrap().clone() else { return false };
+    let Some((_, pid, dir, since)) = PLAYING.lock().unwrap().clone() else { return false };
     let log = log.to_path_buf();
     std::thread::Builder::new()
         .name("bp-close-game".into())
         .spawn(move || {
-            let outcome = close_tree(Pid::from_u32(pid), &dir, GRACE);
+            let outcome = close_tree(Pid::from_u32(pid), &dir, since, GRACE);
             crate::append_log(&log, &format!("Closing the game (process {pid}, {}): {outcome}", dir.display()));
         })
         .is_ok()
 }
 
 /// Asks the game's processes to quit, then forces whichever are left after `grace`; says how it went.
-fn close_tree(root: Pid, dir: &Path, grace: Duration) -> String {
+fn close_tree(root: Pid, dir: &Path, since: u64, grace: Duration) -> String {
     let mut system = System::new();
-    let targets = game_processes(&mut system, root, dir);
+    let targets = game_processes(&mut system, root, dir, since);
     for pid in &targets {
         if let Some(process) = system.process(*pid) {
             // Windows has no "please quit" signal for another program: it's forced there.
@@ -256,9 +268,9 @@ fn close_tree(root: Pid, dir: &Path, grace: Duration) -> String {
     format!("{} processes, {} forced: {}", targets.len(), forced.len(), forced.join(", "))
 }
 
-/// The game's process, everything it started, and anything running from its folder.
-fn game_processes(system: &mut System, root: Pid, dir: &Path) -> Vec<Pid> {
-    system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet));
+/// The game's process, everything it started, and anything of the game's (`of_game`).
+fn game_processes(system: &mut System, root: Pid, dir: &Path, since: u64) -> Vec<Pid> {
+    refresh_for_game(system);
     let me = Pid::from_u32(std::process::id());
     let mut found = vec![root];
     loop {
@@ -274,12 +286,39 @@ fn game_processes(system: &mut System, root: Pid, dir: &Path) -> Vec<Pid> {
         found.extend(more);
     }
     for (pid, p) in system.processes() {
-        if !found.contains(pid) && p.exe().is_some_and(|exe| inside(exe, dir)) {
+        if !found.contains(pid) && of_game(p, dir, since) {
             found.push(*pid);
         }
     }
     found.retain(|pid| *pid != me);
     found
+}
+
+fn refresh_for_game(system: &mut System) {
+    let kind = ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet).with_cwd(UpdateKind::OnlyIfNotSet);
+    system.refresh_processes_specifics(ProcessesToUpdate::All, true, kind);
+}
+
+/// Whether any process of the game's is running (`of_game`).
+fn game_running(system: &mut System, dir: &Path, since: u64) -> bool {
+    refresh_for_game(system);
+    system.processes().values().any(|p| of_game(p, dir, since))
+}
+
+/// A program from inside the game's folder, or one started since the game
+/// (not a terminal opened there earlier) whose working folder is the game's.
+fn of_game(p: &sysinfo::Process, dir: &Path, since: u64) -> bool {
+    p.exe().is_some_and(|exe| inside(exe, dir)) || (p.start_time() >= since && p.cwd().is_some_and(|cwd| same(cwd, dir) || inside(cwd, dir)))
+}
+
+/// The same folder, give or take a final separator (and case, on Windows).
+fn same(a: &Path, b: &Path) -> bool {
+    let norm = |p: &Path| {
+        let s = p.to_string_lossy();
+        let s = s.trim_end_matches(['\\', '/']);
+        if cfg!(windows) { s.to_lowercase() } else { s.to_owned() }
+    };
+    norm(a) == norm(b)
 }
 
 /// Whether any process is running a program from inside `dir`. Processes whose
@@ -314,11 +353,38 @@ mod tests {
     }
 
     #[test]
+    fn a_folder_is_the_same_with_or_without_its_final_separator() {
+        let (dir, slash) = if cfg!(windows) { (Path::new(r"C:\Apps\Game"), Path::new(r"c:\apps\game\")) } else { (Path::new("/apps/Game"), Path::new("/apps/Game/")) };
+        assert!(same(dir, slash));
+        assert!(!same(dir, Path::new(if cfg!(windows) { r"C:\Apps\GameTwo" } else { "/apps/GameTwo" })));
+    }
+
+    #[test]
     fn this_test_runs_from_its_own_folder() {
         let exe = std::env::current_exe().unwrap();
         let mut system = System::new();
         assert!(running_from(&mut system, exe.parent().unwrap()));
         assert!(!running_from(&mut system, Path::new(if cfg!(windows) { r"C:\no\such\folder" } else { "/no/such/folder" })));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_script_that_hands_over_to_a_program_elsewhere_is_still_the_game() {
+        // As Bloodborne's launch_gui.bat: `start` a program from outside the folder (python.exe there), working in it, and exit.
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("launch.bat");
+        std::fs::write(&script, "@echo off\r\ncd /d \"%~dp0\"\r\nstart \"\" /b ping -n 5 127.0.0.1\r\n").unwrap();
+        let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 1;
+        let status = std::process::Command::new(&script).stdout(Stdio::null()).status().unwrap();
+        assert!(status.success());
+        let mut system = System::new();
+        assert!(game_running(&mut system, dir.path(), since), "ping, working in the folder, counts");
+        assert!(!game_running(&mut system, dir.path(), u64::MAX), "but not when it was there before the game");
+        let started = Instant::now();
+        while game_running(&mut system, dir.path(), since) && started.elapsed() < Duration::from_secs(15) {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        assert!(!game_running(&mut system, dir.path(), since), "and the game ends with it");
     }
 
     #[cfg(unix)]
@@ -329,9 +395,9 @@ mod tests {
         std::thread::sleep(Duration::from_millis(300));
         let mut system = System::new();
         let root = Pid::from_u32(game.id());
-        let started = game_processes(&mut system, root, Path::new("/no/such/folder"));
+        let started = game_processes(&mut system, root, Path::new("/no/such/folder"), u64::MAX);
         assert!(started.len() >= 2, "{started:?}");
-        let outcome = close_tree(root, Path::new("/no/such/folder"), Duration::from_millis(500));
+        let outcome = close_tree(root, Path::new("/no/such/folder"), u64::MAX, Duration::from_millis(500));
         assert!(outcome.contains(&format!("{} forced", started.len())), "{outcome}");
         assert!(game.wait().is_ok());
         system.refresh_processes(ProcessesToUpdate::All, true);

@@ -104,6 +104,14 @@ export function libraryApps(input: BridgeInput): BpApp[] {
 export const isInstalled = (app: BpApp) =>
   app.state === "installed" || app.state === "updateAvailable" || app.state === "updating" || (app.state === "error" && Boolean(app.installedVersion));
 
+/**
+ * A download or update has just finished: it was in progress and now isn't. Not while it's still
+ * "updating", which counts as installed: noting it then changed the sidecar, which made new apps,
+ * which noted it again, until React gave up (reinstalling the installed version froze Big Picture).
+ */
+export const justInstalled = (before: BpState | undefined, app: BpApp) =>
+  (before === "downloading" || before === "updating") && app.state !== "downloading" && app.state !== "updating" && isInstalled(app);
+
 /** `done` holds everyone waiting on this install: who asked first, and anyone who asked again meanwhile. */
 /** What the library's tabs show: installed games, and ones in the library downloading for the first time (as Steam does). */
 export const inLibraryView = (app: BpApp) => isInstalled(app) || (app.inLibrary && (app.state === "downloading" || app.state === "queued"));

@@ -19,7 +19,7 @@ import { InputGate } from "./input/gate";
 import { InputRouter } from "./input/router";
 import { ConsoleCatalog } from "./consoles/consoles";
 import { useBridge } from "./useBridge";
-import { isInstalled, type BpState } from "./bridge";
+import { justInstalled, type BpState } from "./bridge";
 import { withArtOverrides } from "./art/art";
 import { Shell } from "./views/Shell";
 import { usePlayFlow } from "./updates/PlayFlow";
@@ -30,6 +30,8 @@ import { useShare, type Share } from "./share/useShare";
 import { ShareDialogBp, ShareDialogDesktop } from "./share/ShareDialog";
 import { usePrograms, type ProgramChoice } from "./programs/usePrograms";
 import { ProgramPickerBp, ProgramPickerDesktop } from "./programs/ProgramPicker";
+import { RomDialogBp, RomDialogDesktop } from "./programs/RomDialog";
+import { OwnProgramsContext, OwnProgramsDialogBp, OwnProgramsDialogDesktop, useOwnProgramsState, type OwnPrograms } from "./programs/ownPrograms";
 import "./bigpicture.css";
 
 const io = { read: bpNative.readSidecar, write: bpNative.writeSidecar };
@@ -42,6 +44,8 @@ export function BigPictureHost({ children }: { children: ReactNode }) {
   const share = useShare(sidecar);
   // Which program starts a game when the catalog doesn't say, and games that fail after starting: both modes.
   const program = usePrograms(sidecar);
+  // "Add programs on this computer": set in either mode's Settings, used by desktop mode's Add an app.
+  const ownPrograms = useOwnProgramsState(sidecar);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,15 +61,17 @@ export function BigPictureHost({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <>
+    <OwnProgramsContext.Provider value={ownPrograms}>
       <div className="bp-desktop" inert={open}>
         {children}
       </div>
-      {open && sidecar && <BigPicture sidecar={sidecar} debug={debug} share={share} program={program} />}
+      {open && sidecar && <BigPicture sidecar={sidecar} debug={debug} share={share} program={program} ownPrograms={ownPrograms} />}
       {!open && sidecar && <ControllerToast enabled={sidecar.settings.offerBigPictureOnControllerConnect} />}
       {!open && <ShareDialogDesktop share={share} />}
       {!open && <ProgramPickerDesktop choice={program} />}
-    </>
+      {!open && <RomDialogDesktop />}
+      {!open && <OwnProgramsDialogDesktop programs={ownPrograms} />}
+    </OwnProgramsContext.Provider>
   );
 }
 
@@ -79,7 +85,19 @@ function useWindowHeight() {
   return height;
 }
 
-function BigPicture({ sidecar, debug, share, program }: { sidecar: SidecarStore; debug: boolean; share: Share; program: ProgramChoice | null }) {
+function BigPicture({
+  sidecar,
+  debug,
+  share,
+  program,
+  ownPrograms,
+}: {
+  sidecar: SidecarStore;
+  debug: boolean;
+  share: Share;
+  program: ProgramChoice | null;
+  ownPrograms: OwnPrograms;
+}) {
   const launcher = useLauncher();
   const store = useBridge();
   const data = useSyncExternalStore(sidecar.subscribe, () => sidecar.snapshot);
@@ -104,8 +122,7 @@ function BigPicture({ sidecar, debug, share, program }: { sidecar: SidecarStore;
   const states = useRef(new Map<string, BpState>());
   useEffect(() => {
     for (const app of bridge.apps) {
-      const before = states.current.get(app.id);
-      if ((before === "downloading" || before === "updating") && isInstalled(app)) sidecar.updateApp(app.id, { installedAt: Date.now() });
+      if (justInstalled(states.current.get(app.id), app)) sidecar.updateApp(app.id, { installedAt: Date.now() });
       states.current.set(app.id, app.state);
     }
   }, [bridge.apps, sidecar]);
@@ -274,8 +291,10 @@ function BigPicture({ sidecar, debug, share, program }: { sidecar: SidecarStore;
         {flow.ui}
         <AssetPicker />
         <ProgramPickerBp choice={program} />
+        <RomDialogBp play={flow.play} />
         <Notices />
         <ShareDialogBp share={share} />
+        <OwnProgramsDialogBp programs={ownPrograms} />
         {debug && (
           <aside className="bp-debug">
             <strong>

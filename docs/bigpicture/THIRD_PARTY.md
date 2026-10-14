@@ -9,5 +9,10 @@ Allowed licenses: MIT, BSD, Apache-2.0, zlib, CC0, OFL. Open each LICENSE before
 | Kenney Input Prompts | 1.5A (2026-07-11) | Xbox, PlayStation and keyboard button glyphs: 42 SVGs in `apps/launcher/src/bigpicture/glyphs/`, renamed by action | CC0 1.0 | `License.txt` in `kenney_input-prompts_1.5.zip` from kenney.nl/assets/input-prompts, copied to `glyphs/LICENSE-kenney.txt` |
 | SDL3 (via `sdl3-sys` 0.7.2, `sdl3-src` 3.4.18) | 3.4.18 | Controller input in Big Picture (`src-tauri/src/bigpicture/pads.rs`), built from source and linked statically | zlib (SDL), Zlib (bindings) | crates.io metadata for `sdl3-sys` and `sdl3-src`; SDL's LICENSE.txt (zlib) |
 | sysinfo | 0.39 | Which processes run from a game's folder (`src-tauri/src/bigpicture/session.rs`), and free disk space before a game is moved (`v3share.rs`) | MIT | crates.io metadata for `sysinfo` 0.39 |
+| lzma-rs | 0.3 | Unpacking `.tar.xz` Linux builds (`src-tauri/src/bigpicture/archives.rs`); already in the build through zip's lzma feature | MIT | crates.io metadata for `lzma-rs` 0.3.0 |
+| libc | 0.2 | Linux only: uinput ioctls for the controller's mouse pointer (`src-tauri/src/bigpicture/pointer.rs`); already in the build through other crates | MIT OR Apache-2.0 | crates.io metadata for `libc` 0.2.190 |
 
 Reference only (no code copied): Playnite (JosefNemec/Playnite, MIT), for the fullscreen layout. In the end focus restore didn't need Playnite's approach: tao's `set_focus` already calls SetForegroundWindow and retries after a simulated Alt press, and `bp_focus` adds the spec's minimize-and-restore fallback.
+
+Open item: the MIT licences (sysinfo, lzma-rs, libc's MIT option) ask for their notice in copies of the software, so the
+release builds should ship a notices file. They don't yet.
